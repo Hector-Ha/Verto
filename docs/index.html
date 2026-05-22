@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verto Innovation Pipeline Docs</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">Verto</p>
+        <h1>AI Innovation Pipeline</h1>
+        <p class="lede">
+          A business-level common ground document for an AI tool that refines raw employee ideas into R&D-ready opportunities.
+        </p>
+      </div>
+      <nav aria-label="Documentation sections">
+        <a href="#business-thesis">Thesis</a>
+        <a href="#actors">Actors</a>
+        <a href="#campaigns">Campaigns</a>
+        <a href="#idea-flow">Idea flow</a>
+        <a href="research.html">Research</a>
+        <a href="#knowledge-system">Knowledge system</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="business-thesis" class="section">
+        <h2>Business Thesis</h2>
+        <p>
+          Innovation teams already receive more ideas than they can evaluate. The product focuses on quality under overload: refining vague submissions, preserving meaningful variations, and routing only decision-ready opportunities into active review.
+        </p>
+        <div class="callout">
+          <strong>Main promise:</strong> always-open idea capture plus campaign-specific refinement, without optimizing for raw submission volume, inventing R&D strategy, or collapsing distinct idea variants too early.
+        </div>
+        <p>
+          Verto's center of gravity is idea intake and refinement. Campaign setup supports that flow, and Global Innovation Context improves it over time.
+        </p>
+      </section>
+
+      <section id="actors" class="section">
+        <h2>Actors</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Employee</h3>
+            <p>Submits raw ideas through the portal. May receive an emailed clarification link when an idea needs more detail. Their identity is visible to R&D for collaboration after selection, but should not drive AI evaluation.</p>
+          </article>
+          <article class="card">
+            <h3>R&D Team</h3>
+            <p>Owns campaigns, decides what topics employees see, reviews refined ideas, and marks true out-of-scope patterns. The R&D leader is the economic buyer; the R&D Campaign Owner, also called an R&D Team Lead, is the champion for a campaign. R&D Team Members can contribute draft answers, but owner approval is required before those answers become campaign ground truth.</p>
+          </article>
+          <article class="card">
+            <h3>AI Agent</h3>
+            <p>Interviews R&D for campaign common ground, asks clarifying questions, organizes ideas, and cites documented rules when evaluating submissions.</p>
+          </article>
+        </div>
+        <div class="callout">
+          Manager collaboration matters after selection in the real business workflow, but it is not a required MVP demo actor.
+        </div>
+      </section>
+
+      <section id="campaigns" class="section">
+        <h2>Campaign Model</h2>
+        <p>
+          A campaign is an R&D-owned innovation theme. It may be lightweight, incomplete, intentionally vague, evolving, or fully detailed when the business need requires precision. The AI should help R&D decide which parts should stay broad and which parts need explicit detail.
+        </p>
+        <div class="two-column">
+          <div>
+            <h3>Active Campaign</h3>
+            <p>A current R&D request or theme. Ideas mapped to active campaigns receive higher triage priority.</p>
+          </div>
+          <div>
+            <h3>Always-Open Campaign</h3>
+            <p>A long-term, indefinite campaign for general ideas. It keeps the portal open even when no specific campaign fits.</p>
+          </div>
+        </div>
+        <div class="principle">
+          <span>Principle</span>
+          <p>R&D chooses employee-facing topics. AI can suggest wording and identify gaps, but it should not decide what themes employees are invited to submit against.</p>
+        </div>
+      </section>
+
+      <section id="rnd-interview" class="section">
+        <h2>R&D Campaign Interview</h2>
+        <p>
+          Before ideas are judged, AI opens a structured discussion with R&D using question mode. The goal is not to force narrow rules. The goal is shared understanding.
+        </p>
+        <ol class="flow">
+          <li>R&D creates or updates a campaign.</li>
+          <li>AI asks one targeted question at a time and recommends a concrete answer.</li>
+          <li>AI asks what should be broad, explicit, hidden, or employee-facing.</li>
+          <li>AI explores unknown unknowns with R&D and records resolved decisions.</li>
+          <li>If R&D lacks enough context, AI asks for relevant track records and synthesizes patterns.</li>
+          <li>R&D defines the campaign-specific minimum review packet.</li>
+          <li>R&D confirms intentional ambiguity where flexibility matters.</li>
+          <li>AI records campaign ground truth for later idea evaluation.</li>
+          <li>Future AI judgments cite the campaign docs.</li>
+        </ol>
+        <div class="callout">
+          Campaign setup is AI-first: R&D works through a global agent question queue, the R&D Campaign Owner clears the owner attention queue, then reviews the campaign-specific HTML knowledge report before opening intake.
+        </div>
+        <p>
+          Hard blockers prevent opening intake. Warnings and skipped clarity questions can remain visible in the knowledge report without blocking launch.
+        </p>
+      </section>
+
+      <section id="setup-knowledge" class="section">
+        <h2>Campaign Setup Knowledge</h2>
+        <p>
+          Each campaign produces a campaign-specific HTML knowledge report that describes what AI understands and will follow for that campaign. R&D does not edit the report directly; corrections go back through AI conversation so the report remains generated from setup state.
+        </p>
+        <p>
+          If Company Context or Global Innovation Context conflicts with campaign intent, the R&D Campaign Owner can approve a campaign-only override. The override is recorded in the Campaign Knowledge Report, but only the R&D Manager can change the published Company Context or Global Innovation Context.
+        </p>
+        <div class="two-column">
+          <div>
+            <h3>AI Setup</h3>
+            <p>AI uses question mode to ask blockers, warnings, and clarity questions across the whole campaign setup, and follows up with the R&D Campaign Owner when owner judgment is unclear.</p>
+          </div>
+          <div>
+            <h3>Structured View</h3>
+            <p>R&D can inspect setup fields in a form-like view, but stored changes still go through AI interpretation and checking.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="idea-flow" class="section">
+        <h2>Idea Flow</h2>
+        <ol class="timeline">
+          <li>
+            <strong>Submit</strong>
+            <span>Employee submits an idea to a visible campaign or the always-open campaign.</span>
+          </li>
+          <li>
+            <strong>Clarify</strong>
+            <span>AI emails a clarification conversation link when the idea does not satisfy the campaign-specific minimum review packet. The conversation is preloaded with relevant campaign docs and evaluation context.</span>
+          </li>
+          <li>
+            <strong>Compare</strong>
+            <span>AI finds related ideas but preserves meaningful variants instead of merging by surface similarity.</span>
+          </li>
+          <li>
+            <strong>Screen</strong>
+            <span>AI checks documented R&D-out-of-scope patterns and can stop employee interview early when a clear match exists.</span>
+          </li>
+          <li>
+            <strong>Route</strong>
+            <span>Ideas become campaign-fit, adjacent, parked, needs-detail, duplicate-candidate, or R&D-out-of-scope.</span>
+          </li>
+          <li>
+            <strong>Review</strong>
+            <span>R&D receives a refined packet with cited reasoning, open questions, and variant context.</span>
+          </li>
+        </ol>
+      </section>
+
+      <section id="similarity" class="section">
+        <h2>Similarity And Variants</h2>
+        <p>
+          Similar core intent does not mean duplicate idea. Vegan menu ideas that use mushroom, tofu, legumes, or plant-based meat may differ in cost, preparation, nutrition, allergens, supply chain, customer appeal, and brand positioning.
+        </p>
+        <div class="callout">
+          AI should tag related ideas as variant candidates and let R&D decide whether they compete, combine, or deserve separate review.
+        </div>
+      </section>
+
+      <section id="classification" class="section">
+        <h2>Pre-R&D Classification</h2>
+        <p>
+          All idea interviews and classification happen before presenting the idea to R&D. The AI should classify the idea, connect it to related ideas, identify variants, and cite campaign or out-of-scope docs before R&D spends review time.
+        </p>
+        <div class="callout">
+          If an idea clearly matches a documented R&D-out-of-scope pattern, AI can stop asking the employee for more detail and classify it accordingly.
+        </div>
+      </section>
+
+      <section id="employee-visibility" class="section">
+        <h2>Employee Clarification Visibility</h2>
+        <p>
+          Employee clarification should show the submitted idea, public campaign context, focused AI questions, and optional examples of useful detail. It should hide internal R&D criteria, scoring, ranking, related employee ideas, sensitive out-of-scope rule names, campaign strategy notes, and Global Innovation Context.
+        </p>
+      </section>
+
+      <section id="learning-loop" class="section">
+        <h2>Campaign Learning Loop</h2>
+        <p>
+          The system suggests potential ideas, but R&D chooses what to review, prototype, commercialize, park, reject, or mark out of scope. When R&D cannot define campaign criteria up front, AI should ask for track records from prior campaigns and synthesize them into a working synopsis.
+        </p>
+        <div class="callout">
+          End-of-campaign decisions are not only outcomes. AI can run a post-campaign question-mode interview with R&D to understand what happened and improve future campaign common ground.
+        </div>
+        <p>
+          Learnings can stay campaign-specific, become Global Innovation Context, or both. AI may recommend the scope, but R&D chooses how broadly each learning applies. Campaign-specific exceptions should usually become global proposals during the post-campaign retrospective, not during live campaign setup.
+        </p>
+        <p>
+          When Global Innovation Context conflicts with campaign intent, AI should raise the conflict during the R&D interview and ask which context governs the campaign.
+        </p>
+      </section>
+
+      <section id="company-context" class="section">
+        <h2>Company Context</h2>
+        <p>
+          Company context is optional reference context for campaign setup. R&D Managers can create it from public web sources, manual descriptions, and uploaded files. AI turns that input into an HTML report, asks conflict or clarity questions when needed, and the R&D Manager approves the report before it becomes usable context.
+        </p>
+        <div class="callout">
+          Company context informs campaign setup but does not overwrite campaign decisions. When it conflicts with a campaign, AI asks R&D to resolve the conflict inside that campaign's setup flow.
+        </div>
+        <p>
+          If Company Context is not set up, company reference context is empty. General global idea-intake rules live in the always-open campaign.
+        </p>
+        <p>
+          When Company Context or Global Innovation Context changes, active campaign owners may receive non-blocking context change alerts. These alerts help owners review possible impact, but they do not block intake or overwrite Campaign Context.
+        </p>
+      </section>
+
+      <section id="demo-story" class="section">
+        <h2>Demo Story</h2>
+        <p>
+          The hackathon demo should show the process truthfully instead of forcing fixed counts or outcomes. It should demonstrate campaign setup, R&D interview, employee idea submission, clarification when needed, variant detection, out-of-scope handling when applicable, pre-R&D classification, R&D selection authority, and post-campaign learning.
+        </p>
+        <p>
+          The core wow moment is AI turning vague R&D intent and messy employee submissions into a documented, explainable candidate set R&D can act on.
+        </p>
+        <div class="callout">
+          MVP fidelity: use real email sending for clarification links, preferably Pingram. Historical track records can be scripted if useful. Company directory data and commercialization outcomes can be simulated.
+        </div>
+        <p>
+          Demo clarification links may use secure magic links without login. Real enterprise deployments should use company identity controls such as SSO, employee directory permissions, link expiry, and audit logging.
+        </p>
+      </section>
+
+      <section id="knowledge-system" class="section">
+        <h2>Knowledge System</h2>
+        <p>
+          The knowledge system should preserve relationships between campaigns, ideas, decisions, ambiguity, and out-of-scope rules. The final R&D-facing format is still open and may become an HTML view, dashboard, structured report, cards, graph, or mixed interface.
+        </p>
+        <div class="node-grid">
+          <a href="#campaigns">[[Campaign: Always-Open Ideas]]</a>
+          <a href="#rnd-interview">[[R&D Decision: Keep Scope Broad]]</a>
+          <a href="#similarity">[[Idea Variant Rule: Do Not Merge By Need Alone]]</a>
+          <a href="#idea-flow">[[Idea State: Parked Opportunity]]</a>
+          <a href="#classification">[[Classification: R&D-Out-of-Scope Pattern]]</a>
+          <a href="#employee-visibility">[[Employee Clarification: Visibility Boundary]]</a>
+          <a href="#learning-loop">[[Campaign Learning Loop: Track Records]]</a>
+          <a href="#demo-story">[[Demo Story: Truthful Process]]</a>
+        </div>
+        <p>
+          This knowledge base is the AI's evaluation ground. It keeps R&D aligned and makes later AI decisions explainable without requiring R&D to read raw markdown walls.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

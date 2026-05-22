@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verto Campaign Setup Flow Prototype</title>
+    <style>
+      :root{color-scheme:light;--ink:#17201f;--muted:#63706e;--line:#dbe3e1;--page:#f6f8f7;--surface:#fff;--soft:#eef5f2;--accent:#0f766e;--accent-dark:#134e4a;--amber:#9a5b13;--red:#9f3a35;--shadow:0 14px 34px rgba(23,32,31,.08)}
+      *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.45}button,input,textarea{font:inherit}button{min-height:38px;border:1px solid var(--accent-dark);border-radius:6px;background:var(--accent-dark);color:#fff;padding:0 14px;cursor:pointer}button.ghost{border-color:var(--line);background:#fff;color:var(--ink)}h1,h2,h3,p{margin-top:0}h1{margin-bottom:0;font-size:1.85rem;line-height:1.1}h2{margin-bottom:0;font-size:1.08rem}h3{margin-bottom:6px;font-size:.96rem}.muted{color:var(--muted)}.eyebrow{margin:0 0 6px;color:var(--accent);font-size:.74rem;font-weight:800;letter-spacing:0;text-transform:uppercase}
+      .app-shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;display:flex;flex-direction:column;height:100vh;border-right:1px solid var(--line);background:#102221;color:#f8fffd;padding:22px 16px}.brand{display:flex;gap:10px;align-items:center;margin-bottom:28px}.brand span{display:grid;width:34px;height:34px;place-items:center;border-radius:8px;background:#dff7ef;color:var(--accent-dark);font-weight:800}.sidebar nav{display:grid;gap:4px}.sidebar a{border-radius:6px;color:#c8d6d3;padding:10px 12px;text-decoration:none}.sidebar a.active,.sidebar a:hover{background:rgba(255,255,255,.09);color:#fff}.tenant{margin-top:auto;border-top:1px solid rgba(255,255,255,.16);padding-top:16px}.tenant small{display:block;margin-bottom:4px;color:#9db3af}.workspace{min-width:0;padding:28px}
+      .panel,.hero,.step,.chatbox,.report{border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}.panel{padding:18px}.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:end;padding:22px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,#f1f7f4 100%)}.hero p{max-width:780px;margin:8px 0 0;color:var(--muted)}.actions{display:flex;flex-wrap:wrap;gap:10px}.status{display:inline-flex;align-items:center;min-height:28px;border-radius:999px;background:var(--soft);color:var(--accent-dark);padding:0 10px;font-size:.78rem;font-weight:800}.status.warn{background:#fff4e3;color:var(--amber)}.status.danger{background:#fff0ee;color:var(--red)}
+      .chatbox{overflow:hidden;margin-bottom:16px}.chatbox header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:#f3f8f6;padding:13px 16px}.chatbox header span{display:grid;width:22px;height:22px;place-items:center;border-radius:999px;background:#bff5ee;color:var(--accent-dark);font-weight:900}.chat-body{display:grid;gap:10px;padding:18px}.message{border:1px solid var(--line);border-radius:8px;background:#fbfcfc;padding:12px}.message.ai{border-color:#b8d9d2;background:#f2fbf8}.message.danger{border-color:#efc7bd;background:#fff8f6}.message.warn{border-color:#f0d0a4;background:#fff9ee}.message strong{display:block;margin-bottom:4px}.question-stack{display:flex;flex-wrap:wrap;gap:8px}.q-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:6px 10px;font-size:.85rem}.q-chip.danger{border-color:#efc7bd;background:#fff8f6;color:var(--red)}.q-chip.warn{border-color:#f0d0a4;background:#fff9ee;color:var(--amber)}.choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.choice{display:grid;grid-template-columns:24px 1fr;gap:10px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px}.choice input{width:18px;height:18px;margin-top:2px;accent-color:var(--accent)}.choice:has(input:checked){border-color:var(--accent);background:#f2fbf8}.chat-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);background:#fbfcfc;padding:12px 16px}.chat-footer button{border-color:var(--line);background:#fff;color:var(--ink)}.chat-footer button.primary{border-color:var(--accent-dark);background:var(--accent-dark);color:#fff;font-weight:800}
+      .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.tab{min-height:40px;border-color:var(--line);background:#fff;color:var(--muted)}.tab.active{border-color:var(--accent);background:var(--soft);color:var(--accent-dark);font-weight:800}.view-switch{display:flex;gap:8px;margin-bottom:16px}.view-switch button{background:#fff;color:var(--ink);border-color:var(--line)}.view-switch button.active{background:var(--accent-dark);color:#fff;border-color:var(--accent-dark)}.layout{display:grid;grid-template-columns:280px minmax(420px,1fr);gap:16px;align-items:start}.progress{display:grid;gap:10px}.step{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;box-shadow:none}.step i{display:grid;width:26px;height:26px;place-items:center;border-radius:999px;background:var(--soft);color:var(--accent-dark);font-style:normal;font-weight:800}.step.current{border-color:var(--accent);background:#f8fcfa}.step.blocked{border-color:#efc7bd;background:#fff8f6}
+      .manual-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:grid;gap:8px}.field label{color:var(--muted);font-size:.82rem;font-weight:800;text-transform:uppercase}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);padding:11px 12px}.field textarea{min-height:110px;resize:vertical}.rule-list{display:grid;gap:10px}.rule{border:1px solid var(--line);border-radius:8px;background:#fff;padding:13px}.rule.warn{border-color:#f0d0a4;background:#fff9ee}.rule.danger{border-color:#efc7bd;background:#fff8f6}.report{padding:0;overflow:hidden}.report header{border-bottom:1px solid var(--line);background:#fbfcfc;padding:16px 18px}.report-section{padding:16px 18px;border-bottom:1px solid var(--line)}.report-section:last-child{border-bottom:0}.report-section ul{margin:8px 0 0;padding-left:20px}
+      .banner{border:1px solid var(--line);border-radius:8px;background:#fff;padding:14px;margin-bottom:16px}.banner.warn{border-color:#f0d0a4;background:#fff9ee}.banner.danger{border-color:#efc7bd;background:#fff8f6}.modal-backdrop{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(10,20,20,.42);padding:20px}.modal{width:min(520px,100%);border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 24px 64px rgba(0,0,0,.26);padding:20px}.switcher{position:fixed;left:50%;bottom:18px;z-index:20;display:flex;gap:10px;align-items:center;transform:translateX(-50%);border:1px solid #0f1f1f;border-radius:999px;background:#0f1f1f;color:#fff;padding:8px;box-shadow:0 16px 32px rgba(0,0,0,.24)}.switcher button{width:40px;min-height:36px;border-color:#355454;border-radius:999px;background:#213838;padding:0}.switcher strong{min-width:210px;text-align:center}
+      @media (max-width:1160px){.layout{grid-template-columns:1fr}.choice-grid,.manual-grid{grid-template-columns:1fr 1fr}}@media (max-width:760px){.app-shell{grid-template-columns:1fr}.sidebar{position:static;height:auto}.sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace{padding:20px 14px 96px}.hero,.choice-grid,.manual-grid{grid-template-columns:1fr}.step{grid-template-columns:1fr}.chat-footer{display:grid}.switcher{width:calc(100% - 24px);justify-content:space-between}.switcher strong{min-width:0;font-size:.9rem}}
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <nav class="switcher" aria-label="Setup pages"><button id="prev-page" type="button" aria-label="Previous page">&lt;</button><strong id="page-label">1 - Topic</strong><button id="next-page" type="button" aria-label="Next page">&gt;</button></nav>
+    <script>
+      const pages = [
+        { key: "topic", label: "1 - Topic", title: "Topic" },
+        { key: "intent", label: "2 - Intent", title: "Intent" },
+        { key: "packet", label: "3 - Review Packet", title: "Review Packet" },
+        { key: "rules", label: "4 - Rules & Memory", title: "Rules & Memory" },
+        { key: "final", label: "5 - Final Review", title: "Final Review" }
+      ];
+      const params = new URLSearchParams(window.location.search);
+      let currentIndex = Math.max(0, pages.findIndex((page) => page.key === (params.get("page") || "topic").toLowerCase()));
+      let view = params.get("view") || "ai";
+      let demo = params.get("demo") || "clean";
+
+      function sidebar() {
+        return `<aside class="sidebar"><div class="brand"><span>V</span><strong>Verto</strong></div><nav><a href="#">Overview</a><a class="active" href="#">Campaigns</a><a href="#">Idea intake</a><a href="#">Review board</a><a href="#">Memory</a></nav><div class="tenant"><small>Workspace</small><strong>Northstar Foods R&D</strong></div></aside>`;
+      }
+      function hero() {
+        const title = pages[currentIndex].title;
+        const copy = currentKey() === "final" ? "Review the knowledge report AI will follow, then open intake with one button." : "AI setup is prioritized. R&D can switch to manual fields when direct editing is faster.";
+        const action = currentKey() === "final" ? `<button class="ghost">Open knowledge report</button><button>Open intake</button>` : `<button class="ghost">Save draft</button><button disabled>Open intake</button>`;
+        const manualActions = currentKey() !== "final" ? `<button class="ghost" data-demo="checked">Run AI check</button>` : "";
+        return `<section class="hero"><div><p class="eyebrow">Campaign setup</p><h1>${title}</h1><p>${copy}</p></div><div class="actions">${manualActions}${action}</div></section>`;
+      }
+      function currentKey() { return pages[currentIndex].key; }
+      function tabs() {
+        return `<div class="tabs">${pages.map((page, index) => `<button class="tab ${index === currentIndex ? "active" : ""}" data-page="${page.key}">${page.label}</button>`).join("")}</div>`;
+      }
+      function viewSwitch() {
+        if (currentKey() === "final") return "";
+        return `<div class="view-switch"><button class="${view === "ai" ? "active" : ""}" data-view="ai">AI setup</button><button class="${view === "manual" ? "active" : ""}" data-view="manual">Manual setup</button></div>`;
+      }
+      function progress() {
+        const status = { topic: "Ready", intent: "Blocked", packet: "Draft", rules: "Conflict", final: "Locked" };
+        return `<article class="panel"><p class="eyebrow">Setup flow</p><div class="progress">${pages.map((page, index) => `<div class="step ${index === currentIndex ? "current" : ""} ${page.key === "intent" ? "blocked" : ""}"><i>${index + 1}</i><div><strong>${page.title}</strong><br><span class="muted">${status[page.key]}</span></div></div>`).join("")}</div></article>`;
+      }
+      function chatbox() {
+        const map = {
+          topic: ["Let us define what employees see first.", "Should this campaign invite all store employees, or start with a smaller pilot group?", [["All employees", "Broad intake for unexpected variants."], ["Pilot group", "Controlled signal before launch."], ["Specific roles", "Only employees with domain context."]]],
+          intent: ["Now let us separate public wording from hidden R&D ground truth.", "Should equipment-dependent ideas be out of scope, parked, or explored for no-equipment variants?", [["Out of scope", "AI can stop clarification early."], ["Park", "Keep for future capital planning."], ["Ask variant", "Ask employee for no-equipment path."]]],
+          packet: ["Now let us define what makes an idea ready for R&D.", "Which evidence is required before R&D review?", [["Need + prep + equipment", "Lean packet for fast review."], ["Add supply risk", "Better for food ingredient ideas."], ["Custom packet", "Let AI interview for exact fields."]]],
+          rules: ["Now let us check memory and rules.", "Should prior legume supply risk affect this campaign?", [["Warning only", "Ask for supply assumptions."], ["Out of scope", "Reject unless R&D overrides."], ["Ignore", "Supplier context changed."]]]
+        };
+        const item = map[currentKey()];
+        const checkedNotice = demo === "checked" ? `<div class="message danger"><strong>AI check found hard blocker</strong><span>Employee prompt invites any kitchen innovation, but internal intent says plant-forward only. Resolve before opening intake.</span></div>` : "";
+        const intentionalNotice = demo === "intentional" ? `<div class="message warn"><strong>Marked intentional ambiguity</strong><span>AI will keep public wording broad but classify using internal plant-forward intent. This appears in Knowledge Report.</span></div>` : "";
+        return `<section class="chatbox"><header><span>?</span><strong>Agent has questions for you</strong></header><div class="chat-body"><div class="question-stack"><span class="q-chip danger">1 blocker</span><span class="q-chip warn">1 warning</span><span class="q-chip">2 clarity</span></div>${checkedNotice}${intentionalNotice}<div class="message ai"><strong>AI</strong><span>${item[0]}</span></div><div class="message"><strong>Question</strong><span>${item[1]}</span></div><div class="choice-grid">${item[2].map((choice, index) => `<label class="choice"><input type="checkbox" ${index === 0 ? "checked" : ""}><strong>${choice[0]}</strong><span class="muted">${choice[1]}</span></label>`).join("")}</div></div><footer class="chat-footer"><span class="muted">Priority: blockers first, then warnings, then clarity questions</span><div class="actions"><button type="button">Auto-answer</button><button class="ghost" type="button" data-demo="intentional">Mark intentional</button><button class="primary" type="button">Next</button></div></footer></section>`;
+      }
+      function manualContent() {
+        const key = currentKey();
+        if (key === "topic") return `<article class="panel"><p class="eyebrow">Manual setup</p><h2>Employee-facing fields</h2><div class="manual-grid" style="margin-top:14px"><div class="field"><label>Campaign name</label><input value="Plant-forward menu ideas"></div><div class="field"><label>Audience</label><input value="All store employees"></div><div class="field" style="grid-column:1/-1"><label>Employee prompt</label><textarea>Share food, ingredient, prep, or service ideas that make our menu more plant-forward.</textarea></div></div><div class="actions" style="margin-top:14px"><button class="ghost">Preview employee view</button></div></article>`;
+        if (key === "intent") return `<article class="panel"><p class="eyebrow">Manual setup</p><h2>Internal R&D intent</h2><div class="manual-grid" style="margin-top:14px"><div class="field"><label>Keep broad</label><textarea>Ingredient type, serving format, employee creativity.</textarea></div><div class="field"><label>Make explicit</label><textarea>No new equipment. Prep burden must be stated. Customer need must be clear.</textarea></div></div></article>`;
+        if (key === "packet") return `<article class="panel"><p class="eyebrow">Manual setup</p><h2>Minimum review packet</h2><div class="manual-grid" style="margin-top:14px"><div class="field"><label>Required fields</label><textarea>Customer need, prep impact, equipment fit, supply risk, variant signal.</textarea></div><div class="field"><label>Clarification trigger</label><textarea>Ask employee when required packet evidence is missing.</textarea></div></div></article>`;
+        return `<article class="panel"><p class="eyebrow">Manual setup</p><h2>Rules and memory</h2><div class="rule-list" style="margin-top:14px"><div class="rule danger"><strong>Equipment dependency</strong><p class="muted">Out-of-scope candidate.</p></div><div class="rule warn"><strong>Legume supply risk</strong><p class="muted">Needs R&D scope decision.</p></div><div class="rule"><strong>Variant preservation</strong><p class="muted">Do not merge by need alone.</p></div></div></article>`;
+      }
+      function aiSummary() {
+        if (currentKey() === "final") return "";
+        return `<article class="panel"><p class="eyebrow">Current setup state</p><h2>${pages[currentIndex].title}</h2><p class="muted">AI fills this from the conversation. R&D can switch to Manual setup to edit exact fields.</p></article>`;
+      }
+      function finalContent() {
+        return `<div class="report"><header><p class="eyebrow">Knowledge report</p><h2>What AI knows and will follow</h2><p class="muted">This can become a generated HTML report for R&D approval.</p></header><section class="report-section"><strong>Public campaign</strong><ul><li>Name: Plant-forward menu ideas</li><li>Employee prompt: broad plant-forward ideas</li><li>Audience: all store employees</li></ul></section><section class="report-section"><strong>Internal intent</strong><ul><li>Keep ingredients broad</li><li>No new kitchen equipment</li><li>Prep burden and customer need required</li></ul></section><section class="report-section"><strong>Classification rules</strong><ul><li>Equipment dependency: out-of-scope candidate</li><li>Legume supply risk: warning until R&D resolves</li><li>Variants preserved for R&D review</li></ul></section><section class="report-section"><strong>Open blockers</strong><ul><li>Equipment rule final answer</li><li>Legume context conflict</li></ul><div class="actions" style="margin-top:14px"><button class="ghost">Continue AI review</button><button>Open intake</button></div></section></div>`;
+      }
+      function blockers() {
+        return `<article class="panel"><p class="eyebrow">Blockers queue</p><div class="rule-list"><div class="rule danger"><strong>Equipment rule</strong><p class="muted">Decide out-of-scope, parked, or ask for variant.</p></div><div class="rule warn"><strong>Legume context conflict</strong><p class="muted">Old supply risk may apply.</p></div></div></article>`;
+      }
+      function mainContent() {
+        if (currentKey() === "final") return `<div class="layout">${progress()}<div>${finalContent()}</div></div>`;
+        return `<div class="layout">${progress()}<div>${demoBanner()}${viewSwitch()}${view === "ai" ? aiSummary() : manualContent()}${currentKey() === "intent" || currentKey() === "rules" ? blockers() : ""}</div></div>${unsavedModal()}`;
+      }
+      function demoBanner() {
+        if (demo === "checked") return `<div class="banner danger"><strong>Manual edits need R&D answer above.</strong><p class="muted">AI check added the conflict to Agent questions as top priority.</p></div>`;
+        if (demo === "intentional") return `<div class="banner warn"><strong>Marked as intentional ambiguity.</strong><p class="muted">AI will keep public wording broad but classify using internal plant-forward intent. This appears in Knowledge Report.</p></div>`;
+        if (demo === "saved") return `<div class="banner"><strong>Draft saved.</strong><p class="muted">AI check queued for saved manual changes.</p></div>`;
+        return "";
+      }
+      function unsavedModal() {
+        if (demo !== "unsaved") return "";
+        return `<div class="modal-backdrop"><div class="modal"><p class="eyebrow">Unsaved changes</p><h2>Save manual edits before leaving?</h2><p class="muted">If you save, AI will check the draft for conflicts. If you discard, progress is not saved and no AI check runs.</p><div class="actions" style="margin-top:16px"><button data-demo="saved">Save draft and check</button><button class="ghost" data-demo="clean">Discard changes</button><button class="ghost" data-demo="clean">Cancel</button></div></div></div>`;
+      }
+      function render() {
+        const content = `<main class="app-shell">${sidebar()}<section class="workspace">${hero()}${currentKey() === "final" ? "" : chatbox()}${tabs()}${mainContent()}</section></main>`;
+        document.getElementById("app").innerHTML = content;
+        document.getElementById("page-label").textContent = pages[currentIndex].label;
+        const nextParams = new URLSearchParams(window.location.search);
+        nextParams.set("page", currentKey());
+        nextParams.set("view", view);
+        nextParams.set("demo", demo);
+        window.history.replaceState(null, "", `${window.location.pathname}?${nextParams.toString()}`);
+        document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => { currentIndex = pages.findIndex((page) => page.key === button.dataset.page); render(); }));
+        document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { view = button.dataset.view; render(); }));
+        document.querySelectorAll("[data-demo]").forEach((button) => button.addEventListener("click", () => { demo = button.dataset.demo; render(); }));
+      }
+      function move(direction) { currentIndex = (currentIndex + direction + pages.length) % pages.length; render(); }
+      document.getElementById("prev-page").addEventListener("click", () => move(-1));
+      document.getElementById("next-page").addEventListener("click", () => move(1));
+      render();
+    </script>
+  </body>
+</html>
