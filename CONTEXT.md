@@ -124,9 +124,13 @@ Global innovation context is cross-campaign R&D learning, reusable judgment patt
 
 A global context change proposal is a suggested change to Company Context or Global Innovation Context. It usually comes from post-campaign retrospective evidence, not ordinary live campaign setup. A global context change proposal may be suggested by AI or requested by an R&D Campaign Owner, but it requires R&D Manager approval before it changes published Company Context or Global Innovation Context.
 
+### Context Impact Check
+
+A context impact check is the AI comparison that runs after a published Company Context or Global Innovation Context change. It compares the changed context against active Campaign Context and determines whether the change is likely to affect campaign setup, classification, review packets, out-of-scope handling, or documented assumptions.
+
 ### Context Change Alert
 
-A context change alert is a non-blocking notice shown to R&D Campaign Owners when Company Context or Global Innovation Context changes in a way that may affect an active campaign. It helps campaign owners review possible impact as a quality-of-life aid. It does not require review, block intake, or overwrite Campaign Context because Campaign Context has stronger authority inside its campaign.
+A context change alert is a non-blocking notice shown to R&D Campaign Owners when a context impact check finds that a Company Context or Global Innovation Context change is likely to affect an active campaign. It helps campaign owners review possible impact as a quality-of-life aid. It does not require review, block intake, or overwrite Campaign Context because Campaign Context has stronger authority inside its campaign.
 
 ### Company Context
 
