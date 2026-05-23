@@ -37,6 +37,9 @@
         <p>
           Verto's center of gravity is idea intake and refinement. Campaign setup supports that flow, and Global Innovation Context improves it over time.
         </p>
+        <p>
+          Current scope is the Idea Filter Pipeline: Verto clarifies, routes, ranks, and helps R&amp;D select promising ideas as Potential Ideas. Potential Ideas leave the Verto pipeline and are, by default, ideas R&amp;D intends to prototype or otherwise work on outside Verto. Verto does not yet manage the full idea-to-product pipeline after selection.
+        </p>
       </section>
 
       <section id="actors" class="section">
@@ -48,7 +51,11 @@
           </article>
           <article class="card">
             <h3>R&D Team</h3>
-            <p>Owns campaigns, decides what topics employees see, reviews refined ideas, and marks true out-of-scope patterns. The R&D leader is the economic buyer; the R&D Campaign Owner, also called an R&D Team Lead, is the champion for a campaign. R&D Team Members can contribute draft answers, but owner approval is required before those answers become campaign ground truth.</p>
+            <p>Owns campaigns, decides what topics employees see, reviews refined ideas, and marks true out-of-scope patterns. The R&amp;D leader is the economic buyer; the R&amp;D Campaign Owner, also called an R&amp;D Team Lead, is the champion for a campaign. R&amp;D Team Members can contribute draft answers, but owner approval is required before those answers become campaign ground truth.</p>
+            <p>R&amp;D Managers can create any specific campaign and assign or change its R&amp;D Campaign Owner. Existing R&amp;D Campaign Owners can create a new specific campaign only when assigning themself as owner. R&amp;D Team Members can draft or propose campaigns, but manager or assigned owner approval is required before setup becomes ground truth.</p>
+            <p>R&amp;D Campaign Owners can add or remove R&amp;D Team Members for their own campaign. R&amp;D Managers can also manage members when needed. Team Members cannot manage membership, and removing a member keeps their past contribution history and audit trail.</p>
+            <p>Added Team Members can see the campaign R&amp;D workspace, including setup, knowledge report, AI questions, idea groups, rankings, review packets, variants, employee identity shown in review packets, and future or inactive returns for that campaign. They can recommend or draft actions, but owner-only approvals remain protected.</p>
+            <p>For General Campaign, the R&amp;D Manager is the default campaign owner. Only R&amp;D Managers can add or remove General Campaign owners. Non-manager General Campaign owners have broad authority inside the General Campaign similar to an R&amp;D Manager, but cannot manage General Campaign owner membership.</p>
           </article>
           <article class="card">
             <h3>AI Agent</h3>
@@ -56,8 +63,14 @@
           </article>
         </div>
         <div class="callout">
-          Manager collaboration matters after selection in the real business workflow, but it is not a required MVP demo actor.
+          Manager collaboration matters after selection in the real business workflow, but employee managers should not appear in the MVP idea review packet and are not a required MVP demo actor.
         </div>
+        <p>
+          Employee department or team may appear in the idea review packet when already available, but only as R&amp;D context. AI should not use department or team for ranking, filtering, or routing unless the campaign context explicitly asks for department-specific ideas.
+        </p>
+        <p>
+          Specific Campaign intake audience defaults to all seeded/demo employees in the MVP. R&amp;D Campaign Owner chooses employee-facing title and context before opening intake. The MVP does not need complex audience targeting by department, team, or location.
+        </p>
       </section>
 
       <section id="campaigns" class="section">
@@ -72,9 +85,32 @@
           </div>
           <div>
             <h3>Always-Open Campaign</h3>
-            <p>A long-term, indefinite campaign for general ideas. It keeps the portal open even when no specific campaign fits.</p>
+            <p>A long-term, indefinite campaign for general ideas, also called a General Campaign. It keeps the portal open even when no specific campaign fits. Ideas that do not fit a current campaign return here as future opportunities or inactive ideas.</p>
+            <p>A General Idea is a temporary intake and routing state, not a final bucket. AI routes it to needs employee clarification, future opportunity, inactive idea, lowest-priority general campaign review, or later into a specific campaign when it becomes Ready for R&amp;D Review. When no specific campaign exists, AI uses Company Context, Global Innovation Context, and always-open campaign rules rather than inventing campaign-specific criteria.</p>
+            <p>General Campaign has a broad minimum review packet because R&amp;D may review ideas directly from General Campaign when no specific campaign is active. This is the lowest review priority and can be managed by General Campaign owners. AI uses Company Context, Global Innovation Context, and always-open campaign rules to decide whether the idea matches company vision enough for general review. Packet changes trigger routing recheck for unreviewed General Campaign ideas only.</p>
           </div>
         </div>
+        <div class="callout">
+          Specific campaign lifecycle: Draft, Setup In Progress, Setup Review, Ready To Open, Intake Scheduled, Intake Open, Intake Closed, Review In Progress, Review Complete, Retrospective, and Ended. There is no Archived status. Intake Paused is planned future lifecycle status, but it is out of current scope. General Campaign stays always open and does not use this lifecycle.
+        </div>
+        <p>
+          Campaign lifecycle gates are owner-controlled. R&amp;D Team Members can contribute during setup and review, and AI can recommend status changes with reasons, but only the R&amp;D Campaign Owner can approve business gate changes such as Ready To Open, Intake Open, Intake Closed, Review Complete, Retrospective, and Ended. Scheduled automation can open intake or close intake at the approved end date only after the owner approved the schedule. When scheduled intake time ends, new submissions stop, existing submitted ideas keep processing, existing employee clarification links stay active until their own 30-day expiry, and R&amp;D can still review ready ideas. AI cannot independently open, close, or end a specific campaign outside owner-approved gates or schedules.
+        </p>
+        <p>
+          R&amp;D can review ideas that are Ready for R&amp;D Review while campaign intake is still open. Review In Progress means the formal review phase after intake closes, not the first moment R&amp;D is allowed to inspect or decide on an idea.
+        </p>
+        <p>
+          When intake closes, the campaign moves to Review In Progress if any unreviewed ideas that are Ready for R&amp;D Review remain. If only clarification or routing work remains, it stays Intake Closed until those finish. Review Complete requires R&amp;D Campaign Owner approval because it means R&amp;D is done with that campaign's review work.
+        </p>
+        <p>
+          Before Review Complete, every idea that is Ready for R&amp;D Review in that campaign must have an explicit outcome: Potential Idea, returned to Future Opportunity, or returned to Inactive Idea. If any Ready for R&amp;D Review idea has no outcome, AI blocks Review Complete and shows the owner which ideas still need a decision. Ideas still in clarification or routing follow separate campaign-end return rules.
+        </p>
+        <p>
+          Retrospective is optional for ending a campaign. After Review Complete, the R&amp;D Campaign Owner can move directly to Ended without running a retrospective. AI should offer a small retrospective Question Mode, but the owner can skip it. If skipped, no Global Innovation Context proposal is created from that campaign at that time. The owner can later start the retrospective from ended campaign history if needed.
+        </p>
+        <p>
+          Ended campaigns remain searchable and visible in campaign history. R&amp;D can inspect setup, final Campaign Knowledge Report, idea lineage, outcomes, and retrospective status. Ended campaigns do not accept new intake, pull new ideas from General Campaign, or receive new review decisions except optional retrospective later. If an employee clarification answer arrives after the campaign has ended, the answer becomes source material on the shared idea in General Campaign and AI evaluates it under General Campaign rules, not the ended campaign. They should not be reopened in current scope. If R&amp;D wants to continue the same theme, they create a new campaign using the ended campaign as track record evidence or cloned setup context, while the ended campaign remains unchanged.
+        </p>
         <div class="principle">
           <span>Principle</span>
           <p>R&D chooses employee-facing topics. AI can suggest wording and identify gaps, but it should not decide what themes employees are invited to submit against.</p>
@@ -100,6 +136,9 @@
         <div class="callout">
           Campaign setup is AI-first: R&D works through a global agent question queue, the R&D Campaign Owner clears the owner attention queue, then reviews the campaign-specific HTML knowledge report before opening intake.
         </div>
+        <p>
+          AI should use scoped RAG-style context: retrieve only context relevant to the current decision. For campaign-specific idea evaluation, use current campaign context, relevant idea source material, and minimal related context. Do not feed unrelated campaigns or the whole knowledge base into every AI call.
+        </p>
         <p>
           Hard blockers prevent opening intake. Warnings and skipped clarity questions can remain visible in the knowledge report without blocking launch.
         </p>
@@ -130,11 +169,11 @@
         <ol class="timeline">
           <li>
             <strong>Submit</strong>
-            <span>Employee submits an idea to a visible campaign or the always-open campaign.</span>
+            <span>Employee submits an idea to an Intake Open specific campaign or to the always-visible General Campaign.</span>
           </li>
           <li>
             <strong>Clarify</strong>
-            <span>AI emails a clarification conversation link when the idea does not satisfy the campaign-specific minimum review packet. The conversation is preloaded with relevant campaign docs and evaluation context.</span>
+            <span>AI automatically emails a clarification conversation link when the idea does not satisfy the campaign-specific minimum review packet. R&amp;D does not manually send freeform clarification messages, and owner approval is not required before AI sends the questions.</span>
           </li>
           <li>
             <strong>Compare</strong>
@@ -146,7 +185,7 @@
           </li>
           <li>
             <strong>Route</strong>
-            <span>Ideas become campaign-fit, adjacent, parked, needs-detail, duplicate-candidate, or R&D-out-of-scope.</span>
+            <span>Ideas become campaign-fit, adjacent, future opportunity, needs-detail, duplicate-candidate, or R&amp;D-out-of-scope.</span>
           </li>
           <li>
             <strong>Review</strong>
@@ -166,32 +205,257 @@
       </section>
 
       <section id="classification" class="section">
-        <h2>Pre-R&D Classification</h2>
+        <h2>Pre-R&D Routing</h2>
         <p>
-          All idea interviews and classification happen before presenting the idea to R&D. The AI should classify the idea, connect it to related ideas, identify variants, and cite campaign or out-of-scope docs before R&D spends review time.
+          All idea interviews and routing happen before presenting the idea to R&D. The AI should route the idea, classify it into meaningful idea groups, connect it to related ideas, identify variants, and cite campaign or out-of-scope docs before R&D spends review time.
+        </p>
+        <p>
+          For an idea submitted directly to an active specific campaign, pre-R&amp;D routing should not automatically remove the idea from that campaign even when AI thinks the idea has poor fit or better fit elsewhere. Rerouting away from the submitted campaign happens only through an explicit R&amp;D outcome decision or when the specific campaign reaches Ended and the campaign-end sweep returns remaining non-Potential ideas to the General Campaign.
+        </p>
+        <p>
+          If Campaign B starts while Campaign A intake is active, Campaign B pulls matching ideas from the General Campaign only. It should not take ideas directly from Campaign A. When Campaign A ends, leftover ideas return to the General Campaign, then Campaign B may pull matching ideas from the General Campaign through normal campaign idea pull-in.
+        </p>
+        <p>
+          Anonymous idea submission is not part of the MVP. R&amp;D needs employee identity for potential follow-up after selection, and clarification links need a known submitter. AI must still not use employee identity for ranking, filtering, or routing.
+        </p>
+        <p>
+          The employee submission portal shows General Campaign always. Specific campaigns appear for submission only when Intake Open. Intake Scheduled, Ready To Open, setup, closed, review, and ended campaigns are not shown for submission in the MVP. If no specific campaign is open, employees still submit to General Campaign.
+        </p>
+        <p>
+          Before submitting, employees see the campaign title, short public context or prompt, optional examples of useful ideas, and submission deadline when relevant. The preview hides internal minimum review packet, out-of-scope rule names, ranking criteria, Global Innovation Context, and R&amp;D strategy notes.
+        </p>
+        <p>
+          The R&amp;D Campaign Owner can edit public title, prompt, or examples after intake opens. In the MVP, preview-only edits do not trigger AI consistency checks or routing rechecks. Existing submitted ideas keep the preview version used at submission for audit and source trace only. There is no dedicated preview version-history UI or diff UI.
+        </p>
+        <p>
+          General Campaign also has a minimal preview, such as General Ideas, a short prompt to submit ideas that do not fit a current campaign, optional examples, and no deadline.
+        </p>
+        <p>
+          General Campaign Owners can edit the General Campaign public title, prompt, and examples. The R&amp;D Manager can also edit because the manager is the default General Campaign owner. MVP preview-only edits do not trigger AI consistency checks or routing rechecks.
+        </p>
+        <p>
+          Employees may submit more than one idea to the same campaign. Each submission should become a separate idea record unless AI detects it is clearly a duplicate or variant of an existing idea. Variants should be linked, not merged.
+        </p>
+        <p>
+          Employees can save private idea drafts before submitting. Drafts belong only to the employee; R&amp;D cannot see them, AI does not process them, R&amp;D does not see draft counts, they do not count as submissions, and they have no clarification links. A draft becomes a real idea only after Submit. A specific-campaign draft stays until the employee deletes it, submits it, or that campaign closes intake. A General Campaign draft stays until the employee deletes or submits it. Deleted drafts leave no R&amp;D-facing, AI-facing, campaign, review, stats, or product audit record. No email or push is sent when a draft becomes unavailable due to intake close; if the employee is viewing it, show that campaign intake closed.
+        </p>
+        <p>
+          Initial idea submission stays lightweight. Required fields are short idea title and free-text idea description. Optional fields include problem or opportunity, expected benefit, rough evidence or example, and supporting link. AI asks one clarification batch later when the campaign minimum review packet needs more detail. Employee file uploads are future scope unless implementation time allows; MVP supports links first.
+        </p>
+        <p>
+          Each employee submission chooses one visible destination: one Intake Open specific campaign or General Campaign. Employees cannot choose multiple campaigns for the same idea in the MVP. If an employee submits to an active specific campaign, AI should not automatically detach the idea from that campaign or route it away just because it appears to fit another campaign or the General Campaign better. It stays associated with the submitted campaign until R&amp;D makes an explicit outcome decision or the campaign reaches Ended and the campaign-end sweep returns remaining non-Potential ideas to the General Campaign. Same-idea submissions to another campaign are handled by duplicate and variant rules.
+        </p>
+        <p>
+          After submitting, the employee sees a simple confirmation with idea title or reference ID and a note that AI or R&amp;D may ask follow-up if needed. The MVP has no employee-facing status tracking page, routing or result labels, rank, review outcome, or promise that R&amp;D will review the idea.
+        </p>
+        <p>
+          Employees should not directly edit their original idea after submission in the MVP. If AI needs more information, the employee clarifies through the clarification link instead.
+        </p>
+        <p>
+          R&amp;D should not edit an employee's original submitted idea text. The original submission should remain immutable for audit. R&amp;D can mark outcomes, approve campaign-specific clarity, and make review decisions.
+        </p>
+        <p>
+          AI can generate an R&amp;D-Facing Idea Summary for review. It is separate from the immutable original submission and should cite or trace back to the original submission and any employee clarifications. It is internal R&amp;D review material and should not be visible to employees. R&amp;D should not directly edit the summary; if it is wrong, any R&amp;D user with review packet access can ask AI to regenerate it with traceability. Summary regeneration is text-only, does not require owner approval, and should not affect routing or ranking. Regenerated summaries should keep lightweight version history, including prior summary versions, who requested regeneration, when, and a brief AI reason. R&amp;D should respect employee answers that came through user clarification and should not override clarified source meaning. If R&amp;D believes AI misunderstood the source, the correction should be framed as an AI interpretation issue, not a change to the employee's answer.
+        </p>
+        <p>
+          If the same employee submits the exact same idea more than once, AI should keep both submission records for audit, mark the newer submission as a duplicate of the older idea, and avoid creating multiple review packets.
+        </p>
+        <p>
+          If different employees submit the same or very similar idea, AI should treat them as related submissions or variants rather than a pure duplicate. The system should keep each employee's submission record, link them under one idea family, and create one review packet that shows multiple submitters or repeated signal.
+        </p>
+        <p>
+          R&amp;D may see employee names in an idea family as contact context before selecting a Potential Idea, but AI must not use employee identity for ranking, filtering, or routing.
+        </p>
+        <p>
+          Idea classification groups can be campaign-specific, global, or both. AI should create, choose, assign, and routinely manage groups appropriate to the campaign and idea set for R&D review, while manual rename, merge, or split remains an exception.
+        </p>
+        <p>
+          General Campaign classification is for filtering and discovery, not review ranking. Groups should represent fundamentally similar ideas, and AI should fit ideas into existing groups before creating new groups.
+        </p>
+        <p>
+          General Campaign classification should default to a 100-group cap to prevent category explosion, configurable later by General Campaign owners. When the cap is full and a truly unique idea needs a new group, AI should pick the smallest existing group by idea count, redistribute those ideas into the remaining groups where they fit, remove that group, and create the new group without owner approval by default. AI should keep an audit log when it dissolves a group, including old group name, reason, moved ideas, destination groups, timestamp, and context version. AI should not send push notifications for General Campaign group dissolution.
+        </p>
+        <p>
+          Groups are review lenses, not taxonomy objects R&D must maintain. The idea remains the primary artifact; group names matter less than helping R&D find and compare relevant ideas.
+        </p>
+        <p>
+          Single-idea groups are allowed only when useful, such as high-value, novel, or easy-to-miss ideas. Ordinary lone ideas should stay in broader emerging-theme or other groups.
+        </p>
+        <p>
+          Emerging themes should stay visible for scanning. They rank above out-of-scope groups but below stronger campaign-fit groups.
+        </p>
+        <p>
+          R&amp;D-out-of-scope should be a reason inside inactive ideas, not a separate final bucket, and should appear at the very bottom of the inactive ideas list. Inactive ideas should not compete with viable idea groups in the main review flow. Main review shows count and top reasons; the inactive ideas view groups by reason, shows matched rules, and allows R&amp;D reclassification.
+        </p>
+        <p>
+          Future opportunities should be separate from inactive ideas, but both views live under the always-open campaign. If an idea fits Company Context or Global Innovation Context but not the current campaign, it usually returns to the always-open campaign as a future opportunity. Inactive ideas are not useful under current known context, but they are kept for audit, search, and reclassification.
+        </p>
+        <p>
+          Future opportunities live in the always-open campaign, also called the general campaign, with lineage back to the campaign that saved them. They return to active campaign work only when AI or R&amp;D later finds enough campaign fit and clarity for the new campaign's minimum review packet. Until then, they stay in future opportunities.
+        </p>
+        <p>
+          Returned ideas should keep lineage: original campaign, reason it did not fit, context version used, future opportunity or inactive outcome, related ideas, and related groups.
+        </p>
+        <p>
+          When a new campaign opens or is set up, AI should pull in matching ideas from the always-open campaign, looking at future opportunities first, then General Ideas that are Ready for R&amp;D Review. Pulled ideas should stay as one shared idea record in General Campaign with an association to the pulling campaign. Inactive ideas should not be pulled unless a recheck has moved them out of inactive first. Matched ideas can enter campaign routing without owner pre-approval, similar to newly submitted ideas.
+        </p>
+        <p>
+          AI should pull a reused idea into a campaign only when the existing information is enough to establish campaign fit and qualifies the idea for that campaign's routing. If there is not enough information to establish fit in the first place, AI should not pull the idea from the General Campaign. After a reused idea is pulled, AI may ask the employee for more clarification only to enrich the campaign review packet when the idea is within the reused idea clarification window and the employee is still active. If extra clarification does not arrive, the idea should stay in the pulling campaign and use existing information with lower-confidence or assumption markers where needed. Missing extra clarification should not send the idea back to the General Campaign or mark it as Needs Critical Clarity.
+        </p>
+        <p>
+          For reused ideas, AI should ask the original employee for clarification only when the idea is within the clarification window and the employee is still active. The default window is six months from original submission, configurable later. Reused idea clarification follows the same one-batch, 30-day clarification timeout, and one day-23 reminder rules as other employee clarification.
+        </p>
+        <p>
+          Reused ideas can enter campaign routing as candidates, but they should not enter normal R&amp;D review until they satisfy the campaign's minimum review packet and become Ready for R&amp;D Review. Noncritical unknowns can be shown as unknowns or assumptions; critical missing information means the idea is not Ready for R&amp;D Review.
+        </p>
+        <p>
+          Candidate ideas missing critical information should use the future opportunity reason Needs Critical Clarity. They should be treated as future opportunities and should not create separate effects, owner attention, normal R&amp;D review work, or review group ranking impact. The campaign owner can supply or approve missing campaign-specific clarity. Team members can draft it, but AI should not promote the idea to Ready for R&amp;D Review or reroute it into normal R&amp;D review until the owner approves the draft.
+        </p>
+        <p>
+          Opening a group should show a summary first: shared theme, count, strongest candidates, repeated patterns, variants, missing information, and out-of-scope risk. AI should rank groups by expected benefit so the campaign owner can review top to bottom or explore as needed. Ranking ideas inside a group is optional, but lower-ranked ideas should remain visible.
+        </p>
+        <p>
+          General Campaign review should rank ideas directly, not groups, because broad intake may create too many groups.
+        </p>
+        <p>
+          Idea ranking should be subjective AI judgment using documented context and visible criteria, not a rigid formula, employee seniority, or popularity. For General Campaign review, ranking should consider fit with Company Context, fit with Global Innovation Context, expected business or R&amp;D value, novelty, feasibility signal, evidence quality, and urgency or strategic timing. Repeated signal from multiple employees may lightly raise confidence or urgency, but should not become popularity voting. Each ranked idea should show 2-4 short rank reasons and no exact numeric score by default.
+        </p>
+        <p>
+          Potential Idea is the happy-path selected final state for an idea that has passed out of the Idea Filter Pipeline. R&amp;D can select a Potential Idea from a specific campaign review or from General Campaign review. By default, it means R&amp;D selected the idea for prototyping or other work outside Verto. Potential Idea is not a pinned rank or AI ranking override. R&amp;D should choose one lightweight fixed system reason tag, with an optional note, such as high value, strong fit, novel, quick prototype, strategic timing, or customer/employee pain. Once marked as Potential Idea, it leaves normal review queues and rankings while remaining searchable with lineage and outcome history. Potential Ideas are excluded from future campaign pull-in. Verto should not reopen a Potential Idea back into the Idea Filter Pipeline; whether the later prototype or work succeeds is outside current scope.
+        </p>
+        <p>
+          Only the relevant owner can mark an idea as Potential Idea: the R&amp;D Campaign Owner for a specific campaign, or a General Campaign Owner for General Campaign review. R&amp;D Team Members can recommend it, but owner approval is required.
+        </p>
+        <p>
+          General Campaign review may still select a shared idea as Potential Idea while specific campaign review is pending. If any associated campaign or the General Campaign marks a shared idea as Potential Idea, the idea should be unplugged from other campaign routing and review queues because it has left the Idea Filter Pipeline globally. Other associated campaign owners should not receive a notification by default. If they later open the idea or history, they should see that it was marked as Potential Idea elsewhere.
+        </p>
+        <p>
+          Employees should not receive an automatic Verto notification when their idea is marked as Potential Idea in the MVP. R&amp;D may contact the employee separately outside Verto if they want to prototype or work on the idea with them.
+        </p>
+        <p>
+          Employees should not receive automatic Verto notifications when their idea becomes a future opportunity or inactive idea in the MVP. Verto should not create employee-facing rejection or internal status messaging for idea outcomes.
+        </p>
+        <p>
+          Unused reviewed ideas return to General Campaign as future opportunities or inactive ideas, depending on whether they may be useful later under known context. These are the only return choices for reviewed ideas that are not selected as Potential Ideas. R&amp;D should choose one lightweight fixed system reason tag, with an optional note, such as not now, insufficient value, poor fit, too unclear, out of scope, or duplicate/covered. AI does not need to suggest the return destination or reason tag by default.
+        </p>
+        <p>
+          Only the relevant owner can return an unused reviewed idea to future opportunity or inactive idea: the R&amp;D Campaign Owner for a specific campaign, or a General Campaign Owner for General Campaign review. R&amp;D Team Members can recommend the return decision, but owner approval is required.
+        </p>
+        <p>
+          For shared ideas associated with multiple campaigns, returning an unused reviewed idea to future opportunity or inactive idea is campaign-context-specific. That return decision should not block another associated campaign from reviewing the same shared idea unless the idea becomes Potential Idea elsewhere. The shared idea record should keep all campaign-specific outcomes in lineage.
+        </p>
+        <p>
+          If R&amp;D thinks an employee answer is wrong, unrealistic, or impractical, that judgment belongs in the R&amp;D review decision or reason tag. It should not rewrite the employee's answer or source meaning.
+        </p>
+        <p>
+          R&amp;D internal notes are out of scope for the MVP hackathon version. The MVP should rely on review decisions, fixed reason tags, optional reason notes, and owner approvals instead of implementing a separate internal note feature.
+        </p>
+        <p>
+          Optional reason notes are small text fields attached to R&amp;D review decisions or reason tags. They are decision metadata, not a separate internal note feature, and do not need search, collaboration, AI summarization, or standalone note management in the MVP.
+        </p>
+        <p>
+          If a specific campaign ends with ideas that were Ready for R&amp;D Review but never reviewed, those ideas return to General Campaign as future opportunities by default, with lineage back to the ended campaign and reason tag not reviewed before campaign ended. If clearly poor fit under broader known context, the R&amp;D Campaign Owner can return one as an inactive idea instead.
+        </p>
+        <p>
+          When a specific campaign reaches Ended, AI runs a campaign-end sweep so no non-Potential idea remains orphaned inside the ended campaign. Needs Employee Clarification ideas return to General Campaign and keep the same 30-day timer. If the employee answers after the campaign ended but before the clarification link expires, AI evaluates the answer under General Campaign rules and routes the shared idea as a General Campaign item: future opportunity, inactive idea, or Ready for R&amp;D Review in General Campaign. If that late clarification makes the idea Ready for R&amp;D Review in General Campaign, AI updates the General Campaign board and counts immediately, but notifies General Campaign owners only through the next scheduled in-app digest. Unfinished routing or candidate work returns to General Campaign with lineage and current best status. Potential Ideas stay out of the Idea Filter Pipeline globally.
+        </p>
+        <p>
+          When AI routes an idea to Needs Employee Clarification, AI automatically creates the clarification batch, sends the employee clarification notice, and opens the 30-day timer. R&amp;D does not manually send the notice in the MVP, and owner approval is not required before AI sends it. Sent questions, send time, expiry time, and later employee answer remain visible to R&amp;D users with campaign access as source/audit material. MVP does not need an R&amp;D early-close or cancel path for a sent clarification link; strong scoped context and the one-batch rule should make clarification good enough for the hackathon version. Once sent, the clarification follows the normal employee answer or 30-day expiry path. The MVP allows one clarification batch per idea per campaign context. Campaign Context changes do not allow another employee clarification batch inside the same specific campaign. If the same shared idea is later pulled into a different campaign context, that later campaign may ask its own one clarification batch only when reused idea clarification rules allow it. The 30-day clarification timeout applies to all ideas in Needs Employee Clarification. The clarification email and page should show the exact expiry date so the employee knows when the link closes. If one stays there for 30 days without being filled, AI closes the clarification link, judges it based on current state and reasonable assumptions, then routes it to future opportunity or inactive idea. After timeout, the clarification link is no longer accessible, so there is no late employee response path for that link. R&amp;D should not resend a new clarification link for the same timed-out clarification in the MVP. After an employee answers a clarification batch, AI routes with that answer and assumptions if needed; no second employee clarification round in the same campaign context, including after Campaign Context changes. If a specific campaign ends with ideas still in Needs Employee Clarification, those ideas return to General Campaign and remain in Needs Employee Clarification until the same timeout or employee response resolves them. Any response after the specific campaign has ended is evaluated under General Campaign rules only.
+        </p>
+        <p>
+          After an employee answers clarification, AI checks whether critical minimum review packet information is now satisfied. If yes, the idea may become Ready for R&amp;D Review with noncritical unknowns or assumptions shown, and AI should update the review board immediately so the idea appears in the correct queue or group. The R&amp;D board should show a small source trace explaining why the idea became Ready for R&amp;D Review by mapping the relevant employee clarification answer to the packet item it satisfied. This source trace should not become a large explanation UI and should not require owner approval. This immediate placement update should not force a full group rerank unless a normal rerank trigger applies. If critical information is still missing, AI does not ask a second clarification batch and does not place the idea in normal R&amp;D review. It routes the idea to future opportunity if still promising, or inactive idea if weak or poor fit, with a recorded reason such as insufficient clarity after clarification.
+        </p>
+        <p>
+          Ideas in Needs Employee Clarification should appear to R&amp;D in a separate Awaiting Clarification queue or count, not inside ranked review groups and not mixed with ideas that are Ready for R&amp;D Review. R&amp;D can inspect the initial idea, what AI asked, expiry date, and answer once it arrives. AI should provisionally rank or sort this queue using only the initial submitted idea and pre-clarification context. This rank is for scanning only, lower confidence than Ready for R&amp;D Review ranking, and cannot be used for Potential Idea, Future Opportunity, or Inactive Idea decisions until clarification is answered or expires.
+        </p>
+        <p>
+          Employee clarification allows text answers and optional supporting link. Employee file uploads are not required for MVP clarification. MVP does not need link validation at submission or clarification time. AI uses a supporting link as evidence only when relevant and understandable. If a link is inaccessible or unclear during the open clarification batch, AI may ask about it inside that same batch; after answer or expiry, AI marks evidence unavailable instead of starting another employee follow-up round.
+        </p>
+        <p>
+          Employee-facing timeout messaging should gently say that if clarification is not received by the expiry date, the idea may be routed based on the information already provided. It should not expose internal labels such as future opportunity, inactive idea, or assumption-based routing.
+        </p>
+        <p>
+          The system should send one clarification reminder around day 23 of the 30-day clarification window. It should not send repeated reminders for the same clarification request.
+        </p>
+        <p>
+          Expired clarification links should show a read-only expired page with expired message, idea title or reference, and expiry date. It should include no form fields, no resubmit button, and no request-new-link action.
+        </p>
+        <p>
+          Assumption-Based Routing should be visibly recorded when AI routes an idea after clarification did not arrive. It should list what AI assumed, why those assumptions were reasonable, and which routing decision they supported. Ideas routed this way should be treated as lower confidence in ranking than similarly valuable fully clarified ideas, but they should not be hidden.
+        </p>
+        <p>
+          Ranking changes do not need separate explanation by default.
+        </p>
+        <p>
+          Group ranking should update on review threshold, scheduled in-app digest, major Campaign Context change, enough new ideas to shift priority, or campaign time running out. Opening the review board should not rerank by itself. A clarification answer that makes one idea Ready for R&amp;D Review updates board placement immediately, but does not force a full group rerank unless a normal rerank trigger applies.
+        </p>
+        <p>
+          AI can classify raw submissions into rough groups, then strengthen or change group assignment after employee clarification when the idea meaning becomes clearer.
+        </p>
+        <p>
+          An idea may appear in multiple groups, with AI choosing one campaign-relative primary group for counting, but it should produce one R&amp;D review packet and be reviewed once within a campaign context. A shared idea associated with multiple campaigns may be reviewed once per campaign context because each campaign may have different review criteria. If any associated campaign marks it as Potential Idea, it exits all campaign queues.
         </p>
         <div class="callout">
           If an idea clearly matches a documented R&D-out-of-scope pattern, AI can stop asking the employee for more detail and classify it accordingly.
         </div>
+        <p>
+          When Campaign Context changes, AI should recheck unreviewed idea routing only. Already reviewed R&amp;D decisions stay tied to the context version used at review time. Context changes do not reset employee clarification limits for the same specific campaign; AI rechecks with existing answers, current context, and assumptions, or asks the R&amp;D Campaign Owner in Question Mode.
+        </p>
+        <p>
+          When the General Campaign Minimum Review Packet changes, AI should recheck unreviewed General Campaign ideas, future opportunities, and inactive ideas only. Already reviewed decisions stay tied to the old packet or context version.
+        </p>
+        <p>
+          For specific campaigns, Company Context or Global Innovation Context changes do not recheck idea routing by themselves. Recheck starts only after the R&D Campaign Owner changes Campaign Context or records a campaign override.
+        </p>
+        <p>
+          For General Campaign, Company Context or Global Innovation Context changes directly recheck unreviewed General Ideas, future opportunities, and inactive ideas because General Campaign uses those contexts to decide company fit.
+        </p>
+        <p>
+          Recheck changes stay internal by default. Employees are contacted only when more clarification is needed or when R&D makes a separate campaign communication decision.
+        </p>
+        <p>
+          General Campaign recheck stores audit history and updates counts or views without immediate owner notification by default. AI notifies General Campaign owners through a scheduled in-app digest only in the MVP. MVP should not send R&amp;D owner digest email or push notifications; email is reserved for employee clarification links.
+        </p>
+        <p>
+          Scheduled in-app review digest cadence is fixed in the MVP, not configurable: active specific campaigns use a daily in-app digest, and the General Campaign uses a weekly in-app digest.
+        </p>
+        <p>
+          R&amp;D Team Members with access to the relevant campaign workspace can read the same scheduled in-app review digest as the R&amp;D Campaign Owner, but digest-linked actions that require owner authority remain owner-only. For General Campaign, General Campaign Owners see the owner digest; R&amp;D Team Members see the digest only if they have access to the General Campaign workspace.
+        </p>
+        <p>
+          Scheduled in-app review digest content should stay compact and actionable: new ideas that became Ready for R&amp;D Review, ideas still Awaiting Clarification near expiry, major routing changes, and rerank summary only when rerank happened. No long AI essay. Each item links to the relevant idea, queue, source trace, or routing detail.
+        </p>
+        <p>
+          Scheduled in-app review digest items are not individually dismissible in the MVP because digest is a generated summary, not a task inbox. Items disappear naturally when the next digest replaces the old digest or when linked state changes.
+        </p>
+        <p>
+          MVP shows latest digest only, with no separate digest history page. Underlying events remain available through idea records, routing history, source traces, and audit logs.
+        </p>
       </section>
 
       <section id="employee-visibility" class="section">
         <h2>Employee Clarification Visibility</h2>
         <p>
-          Employee clarification should show the submitted idea, public campaign context, focused AI questions, and optional examples of useful detail. It should hide internal R&D criteria, scoring, ranking, related employee ideas, sensitive out-of-scope rule names, campaign strategy notes, and Global Innovation Context.
+          Before submitting, employees see only public campaign information: title, short context or prompt, optional examples, and deadline when relevant. Internal review packet, out-of-scope rule names, ranking criteria, Global Innovation Context, and R&amp;D strategy notes stay hidden.
+        </p>
+        <p>
+          General Campaign uses the same public boundary with a broad General Ideas prompt, optional examples, and no deadline.
+        </p>
+        <p>
+          Employee clarification should show the submitted idea, public campaign context, focused AI questions, optional examples of useful detail, optional supporting link input, and clarification deadline details. It should hide internal R&amp;D criteria, scoring, ranking, review outcomes, routing status, related employee ideas, sensitive out-of-scope rule names, campaign strategy notes, Global Innovation Context, and internal labels such as Potential Idea, Future Opportunity, Inactive Idea, and Assumption-Based Routing.
         </p>
       </section>
 
       <section id="learning-loop" class="section">
         <h2>Campaign Learning Loop</h2>
         <p>
-          The system suggests potential ideas, but R&D chooses what to review, prototype, commercialize, park, reject, or mark out of scope. When R&D cannot define campaign criteria up front, AI should ask for track records from prior campaigns and synthesize them into a working synopsis.
+          Potential Idea is the happy-path selected state. Unused reviewed ideas return to General Campaign as future opportunities or inactive ideas. When R&amp;D cannot define campaign criteria up front, AI should ask for track records from prior campaigns and synthesize them into a working synopsis. Managing later prototype or commercialization work is outside the current Idea Filter Pipeline scope.
         </p>
         <div class="callout">
-          End-of-campaign decisions are not only outcomes. AI can run a post-campaign question-mode interview with R&D to understand what happened and improve future campaign common ground.
+          End-of-campaign decisions are not only outcomes. Only the R&D Campaign Owner can start a lightweight retrospective Question Mode session for a specific campaign.
         </div>
         <p>
-          Learnings can stay campaign-specific, become Global Innovation Context, or both. AI may recommend the scope, but R&D chooses how broadly each learning applies. Campaign-specific exceptions should usually become global proposals during the post-campaign retrospective, not during live campaign setup.
+          Learnings can stay campaign-specific, become Global Innovation Context, or both. AI may recommend the scope, but R&D chooses how broadly each learning applies. Campaign-specific exceptions should usually become global proposals during the post-campaign retrospective, not during live campaign setup. Any Company Context or Global Innovation Context change requires a Global Context Change Proposal and R&D Manager approval.
         </p>
         <p>
           When Global Innovation Context conflicts with campaign intent, AI should raise the conflict during the R&D interview and ask which context governs the campaign.
@@ -210,7 +474,13 @@
           If Company Context is not set up, company reference context is empty. General global idea-intake rules live in the always-open campaign.
         </p>
         <p>
-          When Company Context or Global Innovation Context changes, AI compares the change against active Campaign Context. If likely impact exists, active campaign owners may receive non-blocking context change alerts. These alerts help owners review possible impact, but they do not block intake or overwrite Campaign Context.
+          When Company Context or Global Innovation Context changes, AI compares the change against active and draft Campaign Context. Active campaigns may receive non-blocking context change alerts when likely impact exists. Draft campaigns receive setup work in the Agent Question Queue or setup review. Draft impact can become a warning or hard blocker depending on launch correctness. Alerts sit below hard blockers but above warnings; they do not block intake or overwrite Campaign Context.
+        </p>
+        <p>
+          Alert resolution should be structured: No Impact, update Campaign Context, create a campaign override, ask AI follow-up, or escalate to the R&D Manager. No Impact means irrelevant or already covered; override means relevant but intentionally not followed for this campaign.
+        </p>
+        <p>
+          Active campaign alerts should not automatically block intake. AI may recommend closing intake early for severe contradictions, but the R&D Campaign Owner decides.
         </p>
       </section>
 
@@ -223,8 +493,29 @@
           The core wow moment is AI turning vague R&D intent and messy employee submissions into a documented, explainable candidate set R&D can act on.
         </p>
         <div class="callout">
-          MVP fidelity: use real email sending for clarification links, preferably Pingram. Historical track records can be scripted if useful. Company directory data and commercialization outcomes can be simulated.
+          MVP fidelity: use real email sending for clarification links, preferably Pingram. Concrete provider credentials, sender details, and test recipients can be defined during implementation. Historical track records can be scripted if useful. Company directory data and later product outcomes can be simulated if needed.
         </div>
+        <p>
+          All behavior settled in this context and all existing documented behavior that still makes sense are MVP scope unless explicitly marked out of scope. Live demo scope is the full documented MVP, not a narrowed single-path demo. Known exception: R&amp;D internal notes are out of scope for the MVP hackathon version. MVP clarification questions should focus on gaps not already covered by existing docs.
+        </p>
+        <p>
+          MVP should use seeded demo users and role switching instead of full enterprise authentication, while still enforcing role permissions in app logic. Seeded roles should include R&amp;D Manager, General Campaign Owner, Specific Campaign Owner, R&amp;D Team Member, and Employee. Real SSO can come later.
+        </p>
+        <p>
+          All AI behavior in the hackathon MVP should use real LLM calls using GLM-5 as the initial MVP model target, including R&amp;D campaign interviews, employee clarification, idea summary generation, ranking explanations, General Campaign rechecks, context impact checks, and classification decisions. Provider and API access details can be finalized during implementation. Seed data may exist, but AI decisions and explanations should not be deterministic scripted substitutes.
+        </p>
+        <p>
+          If a real LLM call fails during MVP, show a blocking retry state for that AI step. Do not create fake or scripted fallback decisions. Existing data remains unchanged until the real AI step succeeds.
+        </p>
+        <p>
+          R&amp;D should be able to understand important AI decisions where the product exposes them. In the MVP, explanations should appear in the app only where already specified, such as rank reasons or assumption-based routing. If no in-app surface has been specified for a decision, capture the explanation in a demo AI decision log instead of adding new UI. The log is developer/demo-only, not an R&amp;D product surface and not employee-facing.
+        </p>
+        <p>
+          General Campaign behavior is a main MVP feature, not future-only polish. MVP should include General Campaign owner authority, General Campaign Minimum Review Packet, direct General Campaign review, idea-level ranking, future opportunity and inactive idea storage, pull-in to specific campaigns, General Campaign dependency rechecks, and capped General Campaign classification with audit logging. If General Campaign classification is implemented, the 100-group cap should be enforced in data or AI logic, not only shown as documentation. The live demo does not need to exhaustively create 100 groups; it can show a seeded example or audit log entry that proves cap enforcement and group dissolution behavior.
+        </p>
+        <p>
+          MVP should include minimal General Campaign owner membership management UI: show R&amp;D Manager as default General Campaign owner, allow R&amp;D Managers to add or remove General Campaign owners, and block non-manager General Campaign owners from managing membership. Complex permission admin beyond this is not required.
+        </p>
         <p>
           Demo clarification links may use secure magic links without login. Real enterprise deployments should use company identity controls such as SSO, employee directory permissions, link expiry, and audit logging.
         </p>
@@ -239,7 +530,7 @@
           <a href="#campaigns">[[Campaign: Always-Open Ideas]]</a>
           <a href="#rnd-interview">[[R&D Decision: Keep Scope Broad]]</a>
           <a href="#similarity">[[Idea Variant Rule: Do Not Merge By Need Alone]]</a>
-          <a href="#idea-flow">[[Idea State: Parked Opportunity]]</a>
+          <a href="#idea-flow">[[Idea State: Future Opportunity]]</a>
           <a href="#classification">[[Classification: R&D-Out-of-Scope Pattern]]</a>
           <a href="#employee-visibility">[[Employee Clarification: Visibility Boundary]]</a>
           <a href="#learning-loop">[[Campaign Learning Loop: Track Records]]</a>
