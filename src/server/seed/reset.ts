@@ -12,6 +12,7 @@ const RESET_TABLES = [
   "ai_decision_logs",
   "audit_events",
   "idea_state_history",
+  "idea_drafts",
   "ideas",
   "campaign_memberships",
   "user_roles",

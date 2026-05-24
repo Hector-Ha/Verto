@@ -1,5 +1,6 @@
 import {
   boolean,
+  int,
   json,
   mysqlEnum,
   mysqlTable,
@@ -61,6 +62,8 @@ export const campaigns = mysqlTable("campaigns", {
   name: varchar("name", { length: 255 }).notNull(),
   publicTitle: varchar("public_title", { length: 255 }).notNull(),
   publicPrompt: text("public_prompt").notNull(),
+  publicExamples: text("public_examples"),
+  previewVersion: int("preview_version").notNull().default(1),
   lifecycleStatus: campaignLifecycleStatus.notNull(),
   intakeStartsAt: timestamp("intake_starts_at"),
   intakeEndsAt: timestamp("intake_ends_at"),
@@ -173,6 +176,24 @@ export const campaignKnowledgeReports = mysqlTable("campaign_knowledge_reports",
 
 export const ideaSourceType = mysqlEnum("source_type", ["employee_submission", "seed_demo"]);
 
+export const ideaDrafts = mysqlTable("idea_drafts", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  ownerUserId: varchar("owner_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  originalText: text("original_text").notNull(),
+  problemOpportunity: text("problem_opportunity"),
+  expectedBenefit: text("expected_benefit"),
+  evidenceExample: text("evidence_example"),
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
 export const ideas = mysqlTable("ideas", {
   id: varchar("id", { length: 64 }).primaryKey(),
   campaignId: varchar("campaign_id", { length: 64 })
@@ -183,12 +204,21 @@ export const ideas = mysqlTable("ideas", {
     .references(() => users.id),
   title: varchar("title", { length: 255 }).notNull(),
   originalText: text("original_text").notNull(),
+  problemOpportunity: text("problem_opportunity"),
+  expectedBenefit: text("expected_benefit"),
+  evidenceExample: text("evidence_example"),
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  previewVersion: int("preview_version").notNull().default(1),
+  previewTitle: varchar("preview_title", { length: 255 }).notNull().default(""),
+  previewPrompt: text("preview_prompt"),
+  previewExamples: text("preview_examples"),
   sourceType: ideaSourceType.notNull(),
   submittedAt: timestamp("submitted_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
 export const ideaWorkflowState = mysqlEnum("workflow_state", [
+  "submitted",
   "general_idea",
   "needs_employee_clarification",
   "ready_for_rd_review",

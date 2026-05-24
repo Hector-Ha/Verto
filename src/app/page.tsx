@@ -6,6 +6,12 @@ import {
   removeCampaignTeamMemberAction
 } from "@/server/campaigns/actions";
 import {
+  deleteIdeaDraftAction,
+  saveIdeaDraftAction,
+  submitIdeaAction,
+  submitIdeaDraftAction
+} from "@/server/employee-intake/actions";
+import {
   answerSetupQuestionAction,
   approveCampaignKnowledgeReportAction,
   approveSetupAnswerAction,
@@ -19,9 +25,14 @@ import { getCurrentSession } from "@/server/auth/cookies";
 import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
 import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
+import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+type HomeProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
@@ -31,10 +42,15 @@ function formatDateTimeLocal(date: Date | null) {
   return date ? date.toISOString().slice(0, 16) : "";
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: HomeProps) {
+  const resolvedSearchParams = await searchParams;
+  const submittedIdeaId =
+    typeof resolvedSearchParams?.submittedIdeaId === "string" ? resolvedSearchParams.submittedIdeaId : null;
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
   let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
+  let employeeIntakeView: Awaited<ReturnType<typeof getEmployeeIntakeView>> | null = null;
+  let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
@@ -47,14 +63,20 @@ export default async function Home() {
       getCurrentSession()
     ]);
     if (session) {
-      const [nextPermissionSummary, nextCampaignOperations, canReadSetup] = await Promise.all([
+      const [nextPermissionSummary, nextCampaignOperations, canReadSetup, nextEmployeeIntakeView, nextReceipt] = await Promise.all([
         getDemoPermissionSummary(session),
         getCampaignOperationsView(session),
-        canContributeToCampaign(session, "setup-campaign")
+        canContributeToCampaign(session, "setup-campaign"),
+        session.role.id === "employee" ? getEmployeeIntakeView(session) : Promise.resolve(null),
+        session.role.id === "employee" && submittedIdeaId
+          ? getEmployeeSubmissionReceipt(session, submittedIdeaId)
+          : Promise.resolve(null)
       ]);
 
       permissionSummary = nextPermissionSummary;
       campaignOperations = nextCampaignOperations;
+      employeeIntakeView = nextEmployeeIntakeView;
+      submissionReceipt = nextReceipt;
       setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
     }
   } catch (error) {
@@ -227,6 +249,131 @@ export default async function Home() {
               ))}
             </div>
           </section>
+
+          {employeeIntakeView ? (
+            <section className="panel intake-panel">
+              <div className="panel-heading">
+                <h2>Employee Intake</h2>
+                <span>{employeeIntakeView.destinations.length} destinations</span>
+              </div>
+              <div className="intake-shell">
+                {submissionReceipt ? (
+                  <div className="submission-confirmation">
+                    <strong>{submissionReceipt.title}</strong>
+                    <span>{submissionReceipt.confirmationText}</span>
+                  </div>
+                ) : null}
+
+                <div className="intake-grid">
+                  <form action={submitIdeaAction} className="control-form">
+                    <h3>Submit idea</h3>
+                    <label>
+                      <span>Destination</span>
+                      <select name="campaignId" required>
+                        {employeeIntakeView.destinations.map((destination) => (
+                          <option key={`submit:${destination.campaignId}`} value={destination.campaignId}>
+                            {destination.previewTitle}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Title</span>
+                      <input name="title" required />
+                    </label>
+                    <label>
+                      <span>Description</span>
+                      <textarea name="originalText" required rows={4} />
+                    </label>
+                    <label>
+                      <span>Problem or opportunity</span>
+                      <textarea name="problemOpportunity" rows={2} />
+                    </label>
+                    <label>
+                      <span>Expected benefit</span>
+                      <textarea name="expectedBenefit" rows={2} />
+                    </label>
+                    <label>
+                      <span>Evidence or example</span>
+                      <textarea name="evidenceExample" rows={2} />
+                    </label>
+                    <label>
+                      <span>Supporting link</span>
+                      <input name="supportingLink" type="url" />
+                    </label>
+                    <button type="submit">Submit</button>
+                  </form>
+
+                  <form action={saveIdeaDraftAction} className="control-form">
+                    <h3>Save draft</h3>
+                    <label>
+                      <span>Destination</span>
+                      <select name="campaignId" required>
+                        {employeeIntakeView.destinations.map((destination) => (
+                          <option key={`draft:${destination.campaignId}`} value={destination.campaignId}>
+                            {destination.previewTitle}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Title</span>
+                      <input name="title" required />
+                    </label>
+                    <label>
+                      <span>Description</span>
+                      <textarea name="originalText" required rows={4} />
+                    </label>
+                    <label>
+                      <span>Problem or opportunity</span>
+                      <textarea name="problemOpportunity" rows={2} />
+                    </label>
+                    <label>
+                      <span>Expected benefit</span>
+                      <textarea name="expectedBenefit" rows={2} />
+                    </label>
+                    <label>
+                      <span>Evidence or example</span>
+                      <textarea name="evidenceExample" rows={2} />
+                    </label>
+                    <label>
+                      <span>Supporting link</span>
+                      <input name="supportingLink" type="url" />
+                    </label>
+                    <button type="submit">Save</button>
+                  </form>
+                </div>
+
+                <div className="draft-list">
+                  {employeeIntakeView.drafts.map((draft) => (
+                    <article className="draft-card" key={draft.id}>
+                      <div>
+                        <strong>{draft.title}</strong>
+                        <span>{draft.destinationTitle}</span>
+                      </div>
+                      <p>{draft.originalText}</p>
+                      <div className="draft-actions">
+                        <form action={submitIdeaDraftAction}>
+                          <input name="draftId" type="hidden" value={draft.id} />
+                          <button disabled={!draft.destinationAvailable} type="submit">
+                            Submit
+                          </button>
+                        </form>
+                        <form action={deleteIdeaDraftAction}>
+                          <input name="draftId" type="hidden" value={draft.id} />
+                          <button className="secondary-button" type="submit">
+                            Delete
+                          </button>
+                        </form>
+                        {!draft.destinationAvailable ? <code>intake closed</code> : null}
+                      </div>
+                    </article>
+                  ))}
+                  {employeeIntakeView.drafts.length === 0 ? <p className="muted-copy">No saved drafts.</p> : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           {campaignOperations ? (
             <section className="panel">
