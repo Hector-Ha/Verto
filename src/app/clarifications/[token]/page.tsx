@@ -1,5 +1,5 @@
 import { submitClarificationAnswerAction } from "@/server/clarifications/actions";
-import { getEmployeeClarificationView } from "@/server/clarifications/service";
+import { formatClarificationExpiryDate, getEmployeeClarificationView } from "@/server/clarifications/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,7 +41,7 @@ export default async function ClarificationPage({ params }: ClarificationPagePro
             </div>
             <div className="submission-confirmation">
               <strong>{view.requestText}</strong>
-              <span>Expires {view.expiresAt.toLocaleDateString("en-US")}</span>
+              <span>Expires {formatClarificationExpiryDate(view.expiresAt)}</span>
             </div>
             <p>{view.campaignPrompt}</p>
             <p>{view.originalText}</p>
@@ -54,7 +54,10 @@ export default async function ClarificationPage({ params }: ClarificationPagePro
             ) : null}
 
             {view.expired && !view.answered ? (
-              <p className="muted-copy">This clarification link has expired.</p>
+              <p className="muted-copy">
+                This clarification link expired on {formatClarificationExpiryDate(view.expiresAt)}. Your idea may be
+                reviewed using information already provided.
+              </p>
             ) : null}
 
             {view.canAnswer ? (

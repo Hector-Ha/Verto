@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte } from "drizzle-orm";
 
 import { canContributeToCampaign } from "../auth/permissions";
 import type { DemoSession } from "../auth/session";
@@ -35,8 +35,10 @@ type ClarificationOptions = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type AssumptionRoutingDecision = "future_opportunity" | "inactive_idea";
 
 const clarificationPurpose = "employee_clarification.question";
+const assumptionRoutingPurpose = "employee_clarification.assumption_routing";
 const clarificationTool = {
   description: "Record exactly one focused employee clarification question for a submitted idea.",
   name: "record_employee_clarification_question",
@@ -53,6 +55,30 @@ const clarificationTool = {
       }
     },
     required: ["questionText", "rationale"],
+    type: "object"
+  }
+};
+const assumptionRoutingTool = {
+  description: "Record assumption-based routing for an unanswered expired employee clarification.",
+  name: "record_assumption_based_routing",
+  parameters: {
+    additionalProperties: false,
+    properties: {
+      assumptions: {
+        description: "Concise assumptions AI used because no employee answer arrived.",
+        type: "string"
+      },
+      rationale: {
+        description: "Why those assumptions are reasonable from existing source material.",
+        type: "string"
+      },
+      routingDecision: {
+        description: "Supported routing decision after timeout.",
+        enum: ["future_opportunity", "inactive_idea"],
+        type: "string"
+      }
+    },
+    required: ["assumptions", "rationale", "routingDecision"],
     type: "object"
   }
 };
@@ -86,19 +112,20 @@ function tokenHash(token: string) {
 }
 
 function createMagicToken(requestId: string) {
-  const payload = Buffer.from(
-    JSON.stringify({
-      nonce: crypto.randomBytes(24).toString("base64url"),
-      requestId
-    })
-  ).toString("base64url");
-  const signature = crypto.createHmac("sha256", getClarificationLinkSecret()).update(payload).digest("base64url");
+  const signature = crypto.createHmac("sha256", getClarificationLinkSecret()).update(requestId).digest("base64url");
 
-  return `${payload}.${signature}`;
+  return `${requestId}.${signature}`;
 }
 
 function buildClarificationLink(baseUrl: string, token: string) {
   return new URL(`/clarifications/${token}`, baseUrl).toString();
+}
+
+export function formatClarificationExpiryDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long",
+    timeZone: "UTC"
+  }).format(date);
 }
 
 function escapeHtml(value: string) {
@@ -117,6 +144,15 @@ function readRequiredString(value: JsonRecord, key: string, rawResponse: JsonRec
   }
 
   return raw.trim();
+}
+
+function readAssumptionRoutingDecision(value: JsonRecord, rawResponse: JsonRecord | null): AssumptionRoutingDecision {
+  const raw = value.routingDecision;
+  if (raw === "future_opportunity" || raw === "inactive_idea") {
+    return raw;
+  }
+
+  throw new LlmInvalidResponseError("LLM assumption routing result used an unsupported routing decision.", rawResponse, value);
 }
 
 async function readIdeaContext(ideaId: string) {
@@ -163,7 +199,9 @@ async function assertNoClarificationBatch(ideaId: string) {
   const [existing] = await db
     .select({ id: clarificationRequests.id })
     .from(clarificationRequests)
-    .where(and(eq(clarificationRequests.ideaId, ideaId), inArray(clarificationRequests.status, ["pending", "answered"])))
+    .where(
+      and(eq(clarificationRequests.ideaId, ideaId), inArray(clarificationRequests.status, ["pending", "answered", "expired"]))
+    )
     .limit(1);
 
   if (existing) {
@@ -185,6 +223,7 @@ async function writeAiLog(input: {
   inputReference: string;
   model: string;
   outputSummary: string | null;
+  purpose?: string;
   rawResponse: JsonRecord | null;
   status: "succeeded" | "retry_required";
 }) {
@@ -195,10 +234,77 @@ async function writeAiLog(input: {
     inputReference: input.inputReference,
     model: input.model,
     outputSummary: input.outputSummary,
-    purpose: clarificationPurpose,
+    purpose: input.purpose ?? clarificationPurpose,
     rawResponse: input.rawResponse,
     status: input.status
   });
+}
+
+async function generateAssumptionRoutingDecision(
+  request: {
+    campaignPrompt: string;
+    campaignTitle: string;
+    evidenceExample: string | null;
+    expectedBenefit: string | null;
+    ideaId: string;
+    originalText: string;
+    problemOpportunity: string | null;
+    requestId: string;
+    requestText: string;
+    supportingLink: string | null;
+    title: string;
+  },
+  provider?: LlmProvider
+) {
+  const result = await callStructuredTool({
+    messages: [
+      {
+        content: [
+          "You route a Verto idea after an employee clarification timed out.",
+          "Use only existing source material and reasonable assumptions.",
+          "Do not invent a positive answer to the unanswered question.",
+          "Choose future_opportunity when the idea remains promising but unclear.",
+          "Choose inactive_idea when available evidence is too weak, poor fit, or not actionable.",
+          "Return concise assumptions and why they are reasonable."
+        ].join(" "),
+        role: "system"
+      },
+      {
+        content: JSON.stringify({
+          campaign: {
+            prompt: request.campaignPrompt,
+            title: request.campaignTitle
+          },
+          expiredClarification: {
+            requestId: request.requestId,
+            question: request.requestText
+          },
+          idea: {
+            evidenceExample: request.evidenceExample,
+            expectedBenefit: request.expectedBenefit,
+            originalText: request.originalText,
+            problemOpportunity: request.problemOpportunity,
+            supportingLink: request.supportingLink,
+            title: request.title
+          }
+        }),
+        role: "user"
+      }
+    ],
+    provider,
+    tool: assumptionRoutingTool
+  });
+  const assumptions = readRequiredString(result.arguments, "assumptions", result.rawResponse);
+  const rationale = readRequiredString(result.arguments, "rationale", result.rawResponse);
+  const routingDecision = readAssumptionRoutingDecision(result.arguments, result.rawResponse);
+
+  return {
+    assumptions,
+    model: result.model,
+    rationale,
+    rawResponse: result.rawResponse,
+    routingDecision
+  };
 }
 
 async function generateClarificationQuestion(
@@ -251,16 +357,21 @@ async function generateClarificationQuestion(
 
 function emailHtml(input: {
   campaignTitle: string;
+  expiresAt: Date;
   ideaTitle: string;
   link: string;
   questionText: string;
+  reminder?: boolean;
 }) {
+  const expiryDate = formatClarificationExpiryDate(input.expiresAt);
+
   return [
     "<article>",
-    "<p>Verto needs one clarification for your idea.</p>",
+    `<p>${input.reminder ? "Reminder: Verto still needs one clarification for your idea." : "Verto needs one clarification for your idea."}</p>`,
     `<h1>${escapeHtml(input.ideaTitle)}</h1>`,
     `<p>${escapeHtml(input.campaignTitle)}</p>`,
     `<p>${escapeHtml(input.questionText)}</p>`,
+    `<p>Expires ${escapeHtml(expiryDate)}.</p>`,
     `<p><a href="${escapeHtml(input.link)}">Answer clarification</a></p>`,
     "</article>"
   ].join("");
@@ -308,6 +419,31 @@ async function markIdeaNeedsClarification(
     isCurrent: true,
     reason,
     workflowState: "needs_employee_clarification"
+  });
+}
+
+async function markIdeaRoutedByAssumption(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: {
+    assumptions: string;
+    changedAt: Date;
+    ideaId: string;
+    rationale: string;
+    routingDecision: AssumptionRoutingDecision;
+  }
+) {
+  await tx
+    .update(ideaStateHistory)
+    .set({ isCurrent: false })
+    .where(and(eq(ideaStateHistory.ideaId, input.ideaId), eq(ideaStateHistory.isCurrent, true)));
+  await tx.insert(ideaStateHistory).values({
+    changedAt: input.changedAt,
+    changedByUserId: null,
+    ideaId: input.ideaId,
+    id: newId("idea-state"),
+    isCurrent: true,
+    reason: `Assumption-Based Routing: ${input.routingDecision}. Assumptions: ${input.assumptions} Reason: ${input.rationale}`,
+    workflowState: input.routingDecision
   });
 }
 
@@ -387,12 +523,13 @@ export async function requestEmployeeClarification(
       {
         html: emailHtml({
           campaignTitle: idea.previewTitle ?? idea.campaignTitle,
+          expiresAt,
           ideaTitle: idea.title,
           link,
           questionText: aiQuestion.questionText
         }),
         subject: `Clarification needed: ${idea.title}`,
-        text: aiQuestion.questionText,
+        text: `${aiQuestion.questionText}\n\nExpires ${formatClarificationExpiryDate(expiresAt)}.\n${link}`,
         to: {
           email: idea.submitterEmail,
           id: idea.submitterUserId
@@ -454,6 +591,228 @@ export async function requestEmployeeClarification(
     requestId,
     status: "sent" as const,
     token
+  };
+}
+
+export async function runClarificationReminderJob(options: {
+  appBaseUrl?: string;
+  emailProvider?: ClarificationEmailProvider;
+  now?: Date;
+} = {}) {
+  const now = options.now ?? new Date();
+  const dueSince = addDays(now, -23);
+  const rows = await db
+    .select({
+      campaignTitle: campaigns.publicTitle,
+      expiresAt: clarificationRequests.expiresAt,
+      ideaTitle: ideas.title,
+      previewTitle: ideas.previewTitle,
+      requestId: clarificationRequests.id,
+      requestText: clarificationRequests.requestText,
+      submitterEmail: users.email,
+      submitterUserId: users.id
+    })
+    .from(clarificationRequests)
+    .innerJoin(ideas, eq(ideas.id, clarificationRequests.ideaId))
+    .innerJoin(campaigns, eq(campaigns.id, ideas.campaignId))
+    .innerJoin(users, eq(users.id, ideas.submitterUserId))
+    .where(
+      and(
+        eq(clarificationRequests.status, "pending"),
+        eq(clarificationRequests.emailStatus, "sent"),
+        isNull(clarificationRequests.reminderSentAt),
+        lte(clarificationRequests.sentAt, dueSince),
+        gt(clarificationRequests.expiresAt, now)
+      )
+    );
+
+  let sentCount = 0;
+  let retryRequiredCount = 0;
+
+  for (const row of rows) {
+    const token = createMagicToken(row.requestId);
+    const link = buildClarificationLink(options.appBaseUrl ?? getAppBaseUrl(), token);
+
+    try {
+      const emailResult = await sendClarificationEmail(
+        {
+          html: emailHtml({
+            campaignTitle: row.previewTitle || row.campaignTitle,
+            expiresAt: row.expiresAt,
+            ideaTitle: row.ideaTitle,
+            link,
+            questionText: row.requestText,
+            reminder: true
+          }),
+          subject: `Reminder: clarification needed: ${row.ideaTitle}`,
+          text: `${row.requestText}\n\nExpires ${formatClarificationExpiryDate(row.expiresAt)}.\n${link}`,
+          to: {
+            email: row.submitterEmail,
+            id: row.submitterUserId
+          }
+        },
+        options.emailProvider
+      );
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(clarificationRequests)
+          .set({
+            reminderEmailTrackingId: emailResult.trackingId,
+            reminderSentAt: now,
+            updatedAt: now
+          })
+          .where(eq(clarificationRequests.id, row.requestId));
+        await writeClarificationAudit(tx, {
+          actorType: "system",
+          actorUserId: null,
+          entityId: row.requestId,
+          eventType: "clarification.reminder.sent",
+          metadata: { messages: emailResult.messages, trackingId: emailResult.trackingId },
+          reason: "Single day-23 clarification reminder sent through configured provider."
+        });
+      });
+      sentCount += 1;
+    } catch (error) {
+      retryRequiredCount += 1;
+      await db.transaction(async (tx) => {
+        await writeClarificationAudit(tx, {
+          actorType: "system",
+          actorUserId: null,
+          entityId: row.requestId,
+          eventType: "clarification.reminder.retry_required",
+          metadata: { error: error instanceof Error ? error.message : "Clarification reminder failed." },
+          reason: "Clarification reminder failed before any reminder sent state was recorded."
+        });
+      });
+    }
+  }
+
+  return {
+    retryRequiredCount,
+    sentCount
+  };
+}
+
+export async function runClarificationExpiryJob(options: {
+  now?: Date;
+  provider?: LlmProvider;
+} = {}) {
+  const now = options.now ?? new Date();
+  const rows = await db
+    .select({
+      campaignPrompt: campaigns.publicPrompt,
+      campaignTitle: campaigns.publicTitle,
+      evidenceExample: ideas.evidenceExample,
+      expectedBenefit: ideas.expectedBenefit,
+      ideaId: ideas.id,
+      originalText: ideas.originalText,
+      previewPrompt: ideas.previewPrompt,
+      previewTitle: ideas.previewTitle,
+      problemOpportunity: ideas.problemOpportunity,
+      requestId: clarificationRequests.id,
+      requestText: clarificationRequests.requestText,
+      supportingLink: ideas.supportingLink,
+      title: ideas.title
+    })
+    .from(clarificationRequests)
+    .innerJoin(ideas, eq(ideas.id, clarificationRequests.ideaId))
+    .innerJoin(campaigns, eq(campaigns.id, ideas.campaignId))
+    .where(
+      and(
+        eq(clarificationRequests.status, "pending"),
+        eq(clarificationRequests.emailStatus, "sent"),
+        lte(clarificationRequests.expiresAt, now)
+      )
+    );
+
+  let expiredCount = 0;
+  let retryRequiredCount = 0;
+
+  for (const row of rows) {
+    const inputReference = JSON.stringify({
+      ideaId: row.ideaId,
+      requestId: row.requestId,
+      source: "employee_clarification_timeout"
+    });
+
+    let routing: Awaited<ReturnType<typeof generateAssumptionRoutingDecision>>;
+    try {
+      routing = await generateAssumptionRoutingDecision(
+        {
+          ...row,
+          campaignPrompt: row.previewPrompt ?? row.campaignPrompt,
+          campaignTitle: row.previewTitle || row.campaignTitle
+        },
+        options.provider
+      );
+      await writeAiLog({
+        decisionResult: {
+          assumptions: routing.assumptions,
+          rationale: routing.rationale,
+          routingDecision: routing.routingDecision
+        },
+        inputReference,
+        model: routing.model,
+        outputSummary: `Assumption-Based Routing: ${routing.routingDecision}`,
+        purpose: assumptionRoutingPurpose,
+        rawResponse: routing.rawResponse,
+        status: "succeeded"
+      });
+    } catch (error) {
+      retryRequiredCount += 1;
+      await writeAiLog({
+        decisionResult: null,
+        inputReference,
+        model: getLlmModel(),
+        outputSummary: error instanceof Error ? error.message : "Assumption-based routing failed.",
+        purpose: assumptionRoutingPurpose,
+        rawResponse:
+          error instanceof LlmProviderError || error instanceof LlmInvalidResponseError ? error.rawResponse : null,
+        status: "retry_required"
+      });
+      continue;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(clarificationRequests)
+        .set({
+          assumptionReason: routing.rationale,
+          assumptionRoutingDecision: routing.routingDecision,
+          assumptionText: routing.assumptions,
+          expiredAt: now,
+          status: "expired",
+          updatedAt: now
+        })
+        .where(eq(clarificationRequests.id, row.requestId));
+      await markIdeaRoutedByAssumption(tx, {
+        assumptions: routing.assumptions,
+        changedAt: now,
+        ideaId: row.ideaId,
+        rationale: routing.rationale,
+        routingDecision: routing.routingDecision
+      });
+      await writeClarificationAudit(tx, {
+        actorType: "ai",
+        actorUserId: null,
+        entityId: row.requestId,
+        eventType: "clarification.expired.assumption_routed",
+        metadata: {
+          assumptions: routing.assumptions,
+          ideaId: row.ideaId,
+          rationale: routing.rationale,
+          routingDecision: routing.routingDecision
+        },
+        reason: "Clarification timed out and AI routed the idea from existing source material."
+      });
+    });
+    expiredCount += 1;
+  }
+
+  return {
+    expiredCount,
+    retryRequiredCount
   };
 }
 
@@ -570,13 +929,18 @@ export async function getIdeaClarificationReview(session: DemoSession, ideaId: s
   return db
     .select({
       answerText: clarificationRequests.answerText,
+      assumptionReason: clarificationRequests.assumptionReason,
+      assumptionRoutingDecision: clarificationRequests.assumptionRoutingDecision,
+      assumptionText: clarificationRequests.assumptionText,
       emailError: clarificationRequests.emailError,
       emailStatus: clarificationRequests.emailStatus,
       emailTrackingId: clarificationRequests.emailTrackingId,
+      expiredAt: clarificationRequests.expiredAt,
       expiresAt: clarificationRequests.expiresAt,
       ideaTitle: ideas.title,
       requestId: clarificationRequests.id,
       requestText: clarificationRequests.requestText,
+      reminderSentAt: clarificationRequests.reminderSentAt,
       sentAt: clarificationRequests.sentAt,
       status: clarificationRequests.status,
       submitterDepartment: users.department,
@@ -599,12 +963,18 @@ export async function getAccessibleClarificationReviewView(session: DemoSession)
   return db
     .select({
       answerText: clarificationRequests.answerText,
+      assumptionReason: clarificationRequests.assumptionReason,
+      assumptionRoutingDecision: clarificationRequests.assumptionRoutingDecision,
+      assumptionText: clarificationRequests.assumptionText,
       campaignTitle: campaigns.publicTitle,
       emailStatus: clarificationRequests.emailStatus,
+      expiredAt: clarificationRequests.expiredAt,
+      expiresAt: clarificationRequests.expiresAt,
       ideaId: ideas.id,
       ideaTitle: ideas.title,
       requestId: clarificationRequests.id,
       requestText: clarificationRequests.requestText,
+      reminderSentAt: clarificationRequests.reminderSentAt,
       sentAt: clarificationRequests.sentAt,
       status: clarificationRequests.status,
       submitterDisplayName: users.displayName,
@@ -652,7 +1022,12 @@ export async function getAccessibleClarificationTriggerIdeas(session: DemoSessio
       ideaId: clarificationRequests.ideaId
     })
     .from(clarificationRequests)
-    .where(and(inArray(clarificationRequests.ideaId, ideaIds), inArray(clarificationRequests.status, ["pending", "answered"])));
+    .where(
+      and(
+        inArray(clarificationRequests.ideaId, ideaIds),
+        inArray(clarificationRequests.status, ["pending", "answered", "expired"])
+      )
+    );
   const requestedIdeaIds = new Set(existingRequests.map((request) => request.ideaId));
 
   return ideaRows.map((idea) => ({

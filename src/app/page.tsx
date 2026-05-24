@@ -26,6 +26,7 @@ import { getCurrentSession } from "@/server/auth/cookies";
 import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
 import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
 import {
+  formatClarificationExpiryDate,
   getAccessibleClarificationReviewView,
   getAccessibleClarificationTriggerIdeas
 } from "@/server/clarifications/service";
@@ -406,9 +407,17 @@ export default async function Home({ searchParams }: HomeProps) {
                     <div>
                       <strong>{request.ideaTitle}</strong>
                       <span>{request.requestText}</span>
+                      <span>Expires {formatClarificationExpiryDate(request.expiresAt)}</span>
+                      {request.reminderSentAt ? <span>Reminder sent {request.reminderSentAt.toLocaleString("en-US")}</span> : null}
                       {request.answerText ? <span>{request.answerText}</span> : null}
+                      {request.assumptionRoutingDecision ? (
+                        <span>
+                          Assumption-Based Routing: {formatStatus(request.assumptionRoutingDecision)}.{" "}
+                          {request.assumptionText} {request.assumptionReason}
+                        </span>
+                      ) : null}
                     </div>
-                    <code>{request.emailStatus}</code>
+                    <code>{formatStatus(request.status)} / {formatStatus(request.emailStatus)}</code>
                   </div>
                 ))}
                 {clarificationReviewView.length === 0 ? <p className="muted-copy">No employee clarifications yet.</p> : null}

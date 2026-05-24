@@ -254,7 +254,15 @@ export const clarificationRequests = mysqlTable("clarification_requests", {
   emailTrackingId: varchar("email_tracking_id", { length: 255 }),
   emailError: text("email_error"),
   sentAt: timestamp("sent_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  reminderEmailTrackingId: varchar("reminder_email_tracking_id", { length: 255 }),
   expiresAt: timestamp("expires_at").notNull(),
+  expiredAt: timestamp("expired_at"),
+  assumptionText: text("assumption_text"),
+  assumptionReason: text("assumption_reason"),
+  assumptionRoutingDecision: varchar("assumption_routing_decision", { length: 64 }).$type<
+    "future_opportunity" | "inactive_idea"
+  >(),
   answeredAt: timestamp("answered_at"),
   answerText: text("answer_text"),
   supportingLink: varchar("supporting_link", { length: 2048 }),
