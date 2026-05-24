@@ -1,21 +1,21 @@
 # Verto
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![Status: MVP planning](https://img.shields.io/badge/Status-MVP%20planning-6b7280.svg)](#project-status)
+[![Status: MVP scaffold](https://img.shields.io/badge/Status-MVP%20scaffold-0f766e.svg)](#project-status)
 
 Verto is an AI-assisted innovation pipeline for companies that already receive more employee ideas than R&D teams can evaluate manually.
 
 The core problem is **quality under overload**: refining vague submissions, preserving meaningful variants, asking for missing context, and routing only review-ready opportunities into R&D decision workflows.
 
 > [!NOTE]
-> Verto is currently in MVP planning and prototype design. Implementation commands are marked `TBD` until the application scaffold lands.
+> Verto now has a runnable local MVP foundation: Next.js App Router, Docker Compose MySQL, Drizzle schema, reviewable migrations, deterministic seed/reset, and a smoke check.
 
 ## Contents
 
 - [What Verto Does](#what-verto-does)
 - [Product Scope](#product-scope)
 - [Core Workflows](#core-workflows)
-- [Planned Stack](#planned-stack)
+- [Stack](#stack)
 - [Project Status](#project-status)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
@@ -67,7 +67,7 @@ R&D reviews generated packets with source traces, rank reasons, variant context,
 
 After a campaign, R&D can run a lightweight retrospective to decide what should remain campaign-specific and what should become reusable Global Innovation Context.
 
-## Planned Stack
+## Stack
 
 | Area | Decision |
 | --- | --- |
@@ -84,9 +84,9 @@ After a campaign, R&D can run a lightweight retrospective to decide what should 
 
 ## Project Status
 
-Verto is not yet a runnable application in this repository.
+Verto has its first runnable application slice in this repository.
 
-Current assets include product direction, domain rules, technical MVP planning, and UI prototype notes. The live demo scope is the full documented MVP unless a feature is explicitly marked out of scope.
+Current assets include the local app scaffold, product direction, domain rules, technical MVP planning, and UI prototype notes. The live demo scope is the full documented MVP unless a feature is explicitly marked out of scope.
 
 Known out-of-scope MVP items:
 
@@ -103,53 +103,73 @@ Known out-of-scope MVP items:
 
 ### Prerequisites
 
-- bun: `TBD`
-- Docker / Docker Compose: `TBD`
-- MySQL client tools: `TBD`
-- GLM-5 provider credentials: `TBD`
-- Email provider credentials: `TBD`
+- bun 1.3 or newer
+- Docker Desktop with Docker Compose
+- GLM-5 provider credentials for later AI slices
+- Email provider credentials for later clarification slices
 
 ### Install
 
 ```bash
-TBD
+bun install
+```
+
+### Start MySQL
+
+```bash
+docker compose up -d mysql
+```
+
+### Prepare The Database
+
+```bash
+bun run db:migrate
+bun run db:reset
 ```
 
 ### Run Locally
 
 ```bash
-TBD
+bun run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Verify The Foundation
+
+```bash
+bun run smoke
+```
+
+The smoke script runs migrations, resets demo data twice, checks deterministic baseline counts, boots Next.js, and verifies the root route renders.
 
 ### Reset Demo Data
 
 ```bash
-TBD
+bun run db:reset
 ```
 
 ## Environment Variables
 
-Planned environment variables:
+Local defaults are safe demo placeholders. Copy `.env.example` to `.env.local` only when overriding them.
 
 ```bash
-DATABASE_URL=TBD
-JWT_SECRET=TBD
-LLM_API_KEY=TBD
+DATABASE_URL=mysql://verto:verto@127.0.0.1:3307/verto
+JWT_SECRET=replace-with-local-demo-secret
+LLM_API_KEY=replace-with-provider-key
 LLM_MODEL=GLM-5
-EMAIL_PROVIDER=TBD
-EMAIL_API_KEY=TBD
-APP_BASE_URL=TBD
-CLARIFICATION_LINK_SECRET=TBD
+EMAIL_PROVIDER=pingram
+EMAIL_API_KEY=replace-with-email-provider-key
+APP_BASE_URL=http://localhost:3000
+CLARIFICATION_LINK_SECRET=replace-with-local-demo-secret
 ```
 
 ## Roadmap
 
-1. Scaffold the Next.js TypeScript app with bun.
-2. Add Docker Compose MySQL, Drizzle schema, and reviewable migrations.
-3. Seed demo users and implement role switching.
-4. Build campaign setup with blockers, warnings, and Campaign Knowledge Report generation.
-5. Add the LLM adapter and blocking retry state.
-6. Implement General Campaign and specific campaign idea intake.
-7. Add clarification email adapter and magic-link clarification pages.
-8. Build R&D review board with source trace and owner-only outcome decisions.
+1. Add seeded role switching with signed HTTP-only JWT sessions.
+2. Build campaign setup with blockers, warnings, and Campaign Knowledge Report generation.
+3. Add the LLM adapter and blocking retry state.
+4. Implement General Campaign and specific campaign idea intake.
+5. Add clarification email adapter and magic-link clarification pages.
+6. Build R&D review board with source trace and owner-only outcome decisions.
 

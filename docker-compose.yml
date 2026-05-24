@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: verto-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: verto
+      MYSQL_USER: verto
+      MYSQL_PASSWORD: verto
+      MYSQL_ROOT_PASSWORD: verto_root
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - verto_mysql_data:/var/lib/mysql
+
+volumes:
+  verto_mysql_data:

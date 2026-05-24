@@ -14,7 +14,9 @@ out/
 .cache/
 .turbo/
 .parcel-cache/
+.playwright-mcp/
 coverage/
+tsconfig.tsbuildinfo
 
 # Logs
 *.log

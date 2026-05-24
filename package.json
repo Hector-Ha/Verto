@@ -1,0 +1,29 @@
+{
+  "name": "verto",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "bun run src/server/db/migrate.ts",
+    "db:seed": "bun run src/server/seed/seed.ts",
+    "db:reset": "bun run src/server/seed/reset.ts",
+    "auth:check": "bun run scripts/auth-check.ts",
+    "smoke": "bun run scripts/smoke.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "mysql2": "^3.22.3",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3"
+  }
+}
