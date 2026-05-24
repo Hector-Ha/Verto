@@ -240,6 +240,7 @@ export const ideaStateHistory = mysqlTable("idea_state_history", {
 });
 
 export const clarificationStatus = mysqlEnum("status", ["pending", "answered", "expired", "cancelled"]);
+export const clarificationEmailStatus = mysqlEnum("email_status", ["pending", "sent", "retry_required"]);
 
 export const clarificationRequests = mysqlTable("clarification_requests", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -248,11 +249,17 @@ export const clarificationRequests = mysqlTable("clarification_requests", {
     .references(() => ideas.id, { onDelete: "cascade" }),
   requestText: text("request_text").notNull(),
   status: clarificationStatus.notNull(),
+  emailStatus: clarificationEmailStatus.notNull().default("pending"),
   tokenHash: varchar("token_hash", { length: 255 }).notNull().unique(),
+  emailTrackingId: varchar("email_tracking_id", { length: 255 }),
+  emailError: text("email_error"),
+  sentAt: timestamp("sent_at"),
   expiresAt: timestamp("expires_at").notNull(),
   answeredAt: timestamp("answered_at"),
   answerText: text("answer_text"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
 });
 
 export const aiDecisionStatus = mysqlEnum("status", ["pending", "succeeded", "failed", "retry_required"]);

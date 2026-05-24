@@ -11,6 +11,7 @@ import {
   submitIdeaAction,
   submitIdeaDraftAction
 } from "@/server/employee-intake/actions";
+import { requestEmployeeClarificationAction } from "@/server/clarifications/actions";
 import {
   answerSetupQuestionAction,
   approveCampaignKnowledgeReportAction,
@@ -24,6 +25,10 @@ import { switchRoleAction } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/cookies";
 import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
 import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
+import {
+  getAccessibleClarificationReviewView,
+  getAccessibleClarificationTriggerIdeas
+} from "@/server/clarifications/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
 
@@ -51,6 +56,8 @@ export default async function Home({ searchParams }: HomeProps) {
   let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
   let employeeIntakeView: Awaited<ReturnType<typeof getEmployeeIntakeView>> | null = null;
   let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
+  let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
+  let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
@@ -63,20 +70,32 @@ export default async function Home({ searchParams }: HomeProps) {
       getCurrentSession()
     ]);
     if (session) {
-      const [nextPermissionSummary, nextCampaignOperations, canReadSetup, nextEmployeeIntakeView, nextReceipt] = await Promise.all([
+      const [
+        nextPermissionSummary,
+        nextCampaignOperations,
+        canReadSetup,
+        nextEmployeeIntakeView,
+        nextReceipt,
+        nextClarificationReviewView,
+        nextClarificationTriggerIdeas
+      ] = await Promise.all([
         getDemoPermissionSummary(session),
         getCampaignOperationsView(session),
         canContributeToCampaign(session, "setup-campaign"),
         session.role.id === "employee" ? getEmployeeIntakeView(session) : Promise.resolve(null),
         session.role.id === "employee" && submittedIdeaId
           ? getEmployeeSubmissionReceipt(session, submittedIdeaId)
-          : Promise.resolve(null)
+          : Promise.resolve(null),
+        getAccessibleClarificationReviewView(session),
+        getAccessibleClarificationTriggerIdeas(session)
       ]);
 
       permissionSummary = nextPermissionSummary;
       campaignOperations = nextCampaignOperations;
       employeeIntakeView = nextEmployeeIntakeView;
       submissionReceipt = nextReceipt;
+      clarificationReviewView = nextClarificationReviewView;
+      clarificationTriggerIdeas = nextClarificationTriggerIdeas;
       setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
     }
   } catch (error) {
@@ -372,6 +391,50 @@ export default async function Home({ searchParams }: HomeProps) {
                   {employeeIntakeView.drafts.length === 0 ? <p className="muted-copy">No saved drafts.</p> : null}
                 </div>
               </div>
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Employee Clarifications</h2>
+                <span>{clarificationReviewView.length}</span>
+              </div>
+              <div className="table-list">
+                {clarificationReviewView.map((request) => (
+                  <div className="table-row" key={request.requestId}>
+                    <div>
+                      <strong>{request.ideaTitle}</strong>
+                      <span>{request.requestText}</span>
+                      {request.answerText ? <span>{request.answerText}</span> : null}
+                    </div>
+                    <code>{request.emailStatus}</code>
+                  </div>
+                ))}
+                {clarificationReviewView.length === 0 ? <p className="muted-copy">No employee clarifications yet.</p> : null}
+              </div>
+
+              {clarificationTriggerIdeas.length > 0 ? (
+                <div className="campaign-control-list">
+                  {clarificationTriggerIdeas.map((idea) => (
+                    <article className="campaign-control" key={idea.ideaId}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{idea.title}</h3>
+                          <span>{idea.campaignTitle}</span>
+                        </div>
+                        <code>{idea.currentWorkflowState ?? "submitted"}</code>
+                      </div>
+                      <form action={requestEmployeeClarificationAction}>
+                        <input name="ideaId" type="hidden" value={idea.ideaId} />
+                        <button disabled={idea.hasClarificationBatch} type="submit">
+                          Ask AI
+                        </button>
+                      </form>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
             </section>
           ) : null}
 
