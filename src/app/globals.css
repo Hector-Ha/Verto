@@ -475,7 +475,7 @@ label span {
 .setup-summary {
   display: grid;
   gap: 10px;
-  grid-template-columns: 2fr repeat(3, minmax(0, 1fr));
+  grid-template-columns: 2fr repeat(4, minmax(0, 1fr));
 }
 
 .setup-summary > div {
@@ -503,12 +503,43 @@ label span {
   gap: 12px;
 }
 
+.setup-column-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.setup-column-heading form {
+  display: inline-flex;
+}
+
+.setup-column-heading button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.setup-column-heading button:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  cursor: default;
+}
+
 .setup-item,
 .knowledge-report {
   border: 1px solid var(--line);
   display: grid;
   gap: 12px;
   padding: 13px;
+}
+
+.setup-item--retry {
+  background: var(--warn-soft);
+  border-color: #fecdca;
 }
 
 .setup-item-heading {

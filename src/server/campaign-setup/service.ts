@@ -6,6 +6,7 @@ import { canContributeToCampaign, canManageCampaignLifecycle } from "../auth/per
 import type { DemoSession } from "../auth/session";
 import { db } from "../db/client";
 import {
+  aiDecisionLogs,
   auditEvents,
   campaignKnowledgeReports,
   campaignSetupAnswers,
@@ -13,15 +14,20 @@ import {
   campaignSetupQuestions,
   campaigns
 } from "../db/schema";
+import { getLlmModel } from "../env";
+import { LlmInvalidResponseError, LlmProviderError, type LlmProvider } from "../llm/adapter";
+import { generateAiSetupQuestion, type CampaignSetupPromptContext } from "./ai";
 
 type SetupArea = (typeof campaignSetupQuestions.$inferSelect)["setupArea"];
 type SetupQuestion = typeof campaignSetupQuestions.$inferSelect;
 type SetupAnswer = typeof campaignSetupAnswers.$inferSelect;
 type SetupCampaign = typeof campaigns.$inferSelect;
+type AiDecisionLog = typeof aiDecisionLogs.$inferSelect;
 type SetupTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const campaignSetupAreas = ["topic", "intent", "review_packet", "rules_memory", "final_review"] as const;
 const setupMutableStatuses: Array<SetupCampaign["lifecycleStatus"]> = ["setup_in_progress", "setup_review"];
+const setupQuestionAiPurpose = "campaign_setup.question";
 
 export function isCampaignSetupArea(value: unknown): value is SetupArea {
   return typeof value === "string" && campaignSetupAreas.includes(value as SetupArea);
@@ -252,6 +258,146 @@ async function invalidateCampaignKnowledgeReports(tx: SetupTx, campaignId: strin
     .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), ne(campaignKnowledgeReports.status, "stale")));
 }
 
+type CampaignSetupAiReference = {
+  attemptStartedAt: string;
+  campaignId: string;
+  latestReportId: string | null;
+  openQuestionIds: string[];
+  structuredDecisionIds: string[];
+};
+
+function isCampaignSetupAiReference(value: unknown): value is CampaignSetupAiReference {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Partial<CampaignSetupAiReference>;
+
+  return (
+    typeof candidate.attemptStartedAt === "string" &&
+    typeof candidate.campaignId === "string" &&
+    (typeof candidate.latestReportId === "string" || candidate.latestReportId === null) &&
+    Array.isArray(candidate.openQuestionIds) &&
+    candidate.openQuestionIds.every((id) => typeof id === "string") &&
+    Array.isArray(candidate.structuredDecisionIds) &&
+    candidate.structuredDecisionIds.every((id) => typeof id === "string")
+  );
+}
+
+function parseCampaignSetupAiReference(inputReference: string) {
+  try {
+    const parsed = JSON.parse(inputReference) as unknown;
+    return isCampaignSetupAiReference(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildCampaignSetupAiReference(
+  campaignId: string,
+  view: Awaited<ReturnType<typeof getCampaignSetupView>>,
+  attemptStartedAt: Date
+): CampaignSetupAiReference {
+  return {
+    attemptStartedAt: attemptStartedAt.toISOString(),
+    campaignId,
+    latestReportId: view.latestReport?.id ?? null,
+    openQuestionIds: view.questionQueue.map((question) => question.id),
+    structuredDecisionIds: view.structuredSetup.map((decision) => decision.id)
+  };
+}
+
+function getCampaignSetupAiContext(view: Awaited<ReturnType<typeof getCampaignSetupView>>): CampaignSetupPromptContext {
+  return {
+    campaign: {
+      id: view.campaign.id,
+      lifecycleStatus: view.campaign.lifecycleStatus,
+      publicPrompt: view.campaign.publicPrompt,
+      publicTitle: view.campaign.publicTitle
+    },
+    latestReportStatus: view.latestReport?.status ?? null,
+    openQuestions: view.questionQueue.map((question) => ({
+      priority: question.priority,
+      questionText: question.questionText,
+      setupArea: question.setupArea
+    })),
+    structuredSetup: view.structuredSetup.map((decision) => ({
+      isContextOverride: decision.isContextOverride,
+      isIntentionalAmbiguity: decision.isIntentionalAmbiguity,
+      setupArea: decision.setupArea,
+      title: decision.title,
+      value: decision.value
+    })),
+    warnings: view.warnings.map((warning) => ({
+      questionText: warning.questionText
+    }))
+  };
+}
+
+async function getCampaignSetupAiLogs(campaignId: string) {
+  const logs = await db
+    .select()
+    .from(aiDecisionLogs)
+    .where(eq(aiDecisionLogs.purpose, setupQuestionAiPurpose))
+    .orderBy(desc(aiDecisionLogs.createdAt));
+
+  return logs
+    .map((log) => ({
+      log,
+      reference: parseCampaignSetupAiReference(log.inputReference)
+    }))
+    .filter((entry): entry is { log: AiDecisionLog; reference: CampaignSetupAiReference } => {
+      return entry.reference?.campaignId === campaignId;
+    })
+    .sort((left, right) => right.reference.attemptStartedAt.localeCompare(left.reference.attemptStartedAt));
+}
+
+function getBlockingAiRetryStates(aiLogs: Awaited<ReturnType<typeof getCampaignSetupAiLogs>>) {
+  const [latestAttempt] = aiLogs;
+
+  return latestAttempt?.log.status === "retry_required" ? [latestAttempt.log] : [];
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown LLM failure.";
+}
+
+function getErrorRawResponse(error: unknown) {
+  if (error instanceof LlmProviderError || error instanceof LlmInvalidResponseError) {
+    return error.rawResponse;
+  }
+
+  return { error: getErrorMessage(error) };
+}
+
+function getErrorDecisionResult(error: unknown) {
+  if (error instanceof LlmInvalidResponseError) {
+    return error.parsedResult;
+  }
+
+  return null;
+}
+
+async function writeAiSetupAudit(
+  tx: SetupTx,
+  eventType: string,
+  campaignId: string,
+  reason: string,
+  metadata: Record<string, unknown> | null = null
+) {
+  await tx.insert(auditEvents).values({
+    actorType: "ai",
+    actorUserId: null,
+    createdAt: new Date(),
+    entityId: campaignId,
+    entityType: "campaign",
+    eventType,
+    id: newId("audit"),
+    metadata,
+    reason
+  });
+}
+
 export async function getCampaignSetupView(campaignId: string) {
   const campaign = await getSpecificCampaign(campaignId);
   const questions = await db
@@ -274,6 +420,8 @@ export async function getCampaignSetupView(campaignId: string) {
     .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), ne(campaignKnowledgeReports.status, "stale")))
     .orderBy(desc(campaignKnowledgeReports.generatedAt))
     .limit(1);
+  const aiLogs = await getCampaignSetupAiLogs(campaignId);
+  const aiRetryStates = getBlockingAiRetryStates(aiLogs);
 
   const questionQueue = questions
     .filter((question) => question.status === "open")
@@ -284,11 +432,17 @@ export async function getCampaignSetupView(campaignId: string) {
   const hardBlockers = questionQueue.filter((question) => question.priority === "hard_blocker");
   const ownerAttentionQueue = [
     ...hardBlockers.map((question) => ({ id: question.id, kind: "hard_blocker" as const, text: question.questionText })),
+    ...aiRetryStates.map((log) => ({
+      id: log.id,
+      kind: "ai_retry_required" as const,
+      text: log.outputSummary ?? "AI retry required before this setup step can continue."
+    })),
     ...pendingOwnerApprovals.map((answer) => ({ id: answer.id, kind: "pending_owner_approval" as const, text: answer.answerText })),
     ...warnings.map((question) => ({ id: question.id, kind: "warning" as const, text: question.questionText }))
   ];
 
   return {
+    aiRetryStates,
     campaign,
     latestReport: latestReport ?? null,
     openHardBlockerCount: hardBlockers.length,
@@ -497,6 +651,101 @@ export async function rejectSetupAnswer(session: DemoSession, answerId: string, 
   });
 }
 
+export async function requestAiSetupQuestion(
+  session: DemoSession,
+  campaignId: string,
+  options: {
+    provider?: LlmProvider;
+  } = {}
+) {
+  await assertCanManageSetup(session, campaignId, "request AI setup questions");
+  const campaign = await getSpecificCampaign(campaignId);
+  assertCampaignSetupMutable(campaign, "request AI setup questions");
+
+  const view = await getCampaignSetupView(campaignId);
+  const attemptStartedAt = new Date();
+  const inputReference = JSON.stringify(buildCampaignSetupAiReference(campaignId, view, attemptStartedAt));
+  const model = getLlmModel();
+
+  try {
+    const aiResult = await generateAiSetupQuestion(getCampaignSetupAiContext(view), {
+      model,
+      provider: options.provider
+    });
+    const now = new Date();
+    const logId = newId("ai-decision");
+    const questionId = newId("setup-question");
+
+    await db.transaction(async (tx) => {
+      const lockedCampaign = await getSpecificCampaignForUpdate(tx, campaignId);
+      assertCampaignSetupMutable(lockedCampaign, "request AI setup questions");
+
+      await tx.insert(aiDecisionLogs).values({
+        createdAt: now,
+        decisionResult: aiResult.parsedQuestion,
+        id: logId,
+        inputReference,
+        model: aiResult.model,
+        outputSummary: aiResult.parsedQuestion.questionText,
+        purpose: setupQuestionAiPurpose,
+        rawResponse: aiResult.rawResponse,
+        status: "succeeded"
+      });
+      await tx.insert(campaignSetupQuestions).values({
+        campaignId,
+        createdAt: now,
+        id: questionId,
+        priority: aiResult.parsedQuestion.priority,
+        questionText: aiResult.parsedQuestion.questionText,
+        rationale: aiResult.parsedQuestion.rationale,
+        recommendedAnswer: aiResult.parsedQuestion.recommendedAnswer,
+        setupArea: aiResult.parsedQuestion.setupArea,
+        status: "open",
+        updatedAt: now
+      });
+      await invalidateCampaignKnowledgeReports(tx, campaignId);
+      await writeAiSetupAudit(tx, "campaign.setup.ai_question.generated", campaignId, "AI setup question generated.", {
+        logId,
+        questionId,
+        requestedByUserId: session.user.id
+      });
+    });
+
+    return {
+      logId,
+      questionId,
+      status: "succeeded" as const
+    };
+  } catch (error) {
+    const now = new Date();
+    const logId = newId("ai-decision");
+
+    await db.transaction(async (tx) => {
+      await tx.insert(aiDecisionLogs).values({
+        createdAt: now,
+        decisionResult: getErrorDecisionResult(error),
+        id: logId,
+        inputReference,
+        model,
+        outputSummary: getErrorMessage(error),
+        purpose: setupQuestionAiPurpose,
+        rawResponse: getErrorRawResponse(error),
+        status: "retry_required"
+      });
+      await writeAiSetupAudit(tx, "campaign.setup.ai_question.retry_required", campaignId, "AI setup question retry required.", {
+        error: getErrorMessage(error),
+        logId,
+        requestedByUserId: session.user.id
+      });
+    });
+
+    return {
+      logId,
+      status: "retry_required" as const
+    };
+  }
+}
+
 function renderKnowledgeReport(view: Awaited<ReturnType<typeof getCampaignSetupView>>) {
   const decisions = view.structuredSetup
     .map(
@@ -606,6 +855,9 @@ export async function approveCampaignKnowledgeReport(session: DemoSession, repor
 
 export async function assertCampaignSetupReadyForIntake(campaignId: string) {
   const view = await getCampaignSetupView(campaignId);
+  if (view.aiRetryStates.length > 0) {
+    throw new Error("AI setup retry state must be resolved before opening intake.");
+  }
   if (view.openHardBlockerCount > 0) {
     throw new Error("Setup hard blockers prevent opening intake.");
   }

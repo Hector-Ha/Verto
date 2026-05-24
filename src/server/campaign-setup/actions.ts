@@ -9,6 +9,7 @@ import {
   approveSetupAnswer,
   editPendingSetupAnswer,
   generateCampaignKnowledgeReport,
+  requestAiSetupQuestion,
   rejectSetupAnswer
 } from "./service";
 
@@ -64,6 +65,12 @@ export async function rejectSetupAnswerAction(formData: FormData) {
   await rejectSetupAnswer(session, readString(formData, "answerId"), {
     reason: readString(formData, "reason")
   });
+  redirect("/");
+}
+
+export async function requestAiSetupQuestionAction(formData: FormData) {
+  const session = await requireSession();
+  await requestAiSetupQuestion(session, readString(formData, "campaignId"));
   redirect("/");
 }
 

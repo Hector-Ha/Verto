@@ -11,6 +11,7 @@ import {
   approveSetupAnswerAction,
   editPendingSetupAnswerAction,
   generateCampaignKnowledgeReportAction,
+  requestAiSetupQuestionAction,
   rejectSetupAnswerAction
 } from "@/server/campaign-setup/actions";
 import { switchRoleAction } from "@/server/auth/actions";
@@ -392,11 +393,23 @@ export default async function Home() {
                     <strong>{setupView.warnings.length}</strong>
                     <span>Warnings</span>
                   </div>
+                  <div>
+                    <strong>{setupView.aiRetryStates.length}</strong>
+                    <span>AI retry states</span>
+                  </div>
                 </div>
 
                 <div className="setup-grid">
                   <div className="setup-column">
-                    <h3>Agent Question Queue</h3>
+                    <div className="setup-column-heading">
+                      <h3>Agent Question Queue</h3>
+                      <form action={requestAiSetupQuestionAction}>
+                        <input name="campaignId" type="hidden" value={setupView.campaign.id} />
+                        <button disabled={!session} type="submit">
+                          Ask AI
+                        </button>
+                      </form>
+                    </div>
                     {setupView.questionQueue.map((question) => (
                       <article className="setup-item" key={question.id}>
                         <div className="setup-item-heading">
@@ -434,7 +447,19 @@ export default async function Home() {
 
                   <div className="setup-column">
                     <h3>Owner Attention Queue</h3>
-                    {setupView.pendingOwnerApprovals.length === 0 ? <p className="muted-copy">No pending owner approvals.</p> : null}
+                    {setupView.aiRetryStates.length === 0 && setupView.pendingOwnerApprovals.length === 0 ? (
+                      <p className="muted-copy">No pending owner approvals.</p>
+                    ) : null}
+                    {setupView.aiRetryStates.map((retryState) => (
+                      <article className="setup-item setup-item--retry" key={retryState.id}>
+                        <div className="setup-item-heading">
+                          <code>retry_required</code>
+                          <span>{retryState.model}</span>
+                        </div>
+                        <strong>AI setup question retry required</strong>
+                        <p>{retryState.outputSummary ?? "Retry the AI setup question request before this setup step can continue."}</p>
+                      </article>
+                    ))}
                     {setupView.pendingOwnerApprovals.map((answer) => (
                       <article className="setup-item" key={answer.id}>
                         <div className="setup-item-heading">
