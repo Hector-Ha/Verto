@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { callStructuredTool, type LlmProvider } from "../src/server/llm/adapter";
 import { DEMO_PERSONAS, type DemoPersonaId } from "../src/server/auth/personas";
 import { createSessionToken, getSessionFromToken } from "../src/server/auth/session";
-import { getCampaignSetupView, requestAiSetupQuestion } from "../src/server/campaign-setup/service";
+import {
+  answerSetupQuestion,
+  approveCampaignKnowledgeReport,
+  generateCampaignKnowledgeReport,
+  getAuthorizedCampaignSetupView,
+  getCampaignSetupView,
+  requestAiSetupQuestion
+} from "../src/server/campaign-setup/service";
 import { closeDatabase, db } from "../src/server/db/client";
 import { runMigrations } from "../src/server/db/migrate";
 import { aiDecisionLogs, campaignSetupQuestions } from "../src/server/db/schema";
@@ -96,9 +103,17 @@ async function main() {
     await runMigrations();
     await resetAndSeedDemoData();
     const owner = await sessionFor("specific-campaign-owner");
+    const teamMember = await sessionFor("rd-team-member");
+    const ownerSetupView = await getAuthorizedCampaignSetupView(owner, "setup-campaign");
+    const teamSetupView = await getAuthorizedCampaignSetupView(teamMember, "setup-campaign");
+    assert.equal(ownerSetupView.canManageSetup, true);
+    assert.equal(teamSetupView.canManageSetup, false);
     const beforeSuccessCount = await countSetupQuestions();
     const success = await requestAiSetupQuestion(owner, "setup-campaign", { provider });
     assert.equal(success.status, "succeeded");
+    if (!("questionId" in success)) {
+      throw new Error("AI setup question should succeed.");
+    }
     assert.equal(await countSetupQuestions(), beforeSuccessCount + 1);
     let view = await getCampaignSetupView("setup-campaign");
     assert.equal(view.questionQueue.some((question) => question.id === success.questionId), true);
@@ -130,6 +145,10 @@ async function main() {
     assert.equal((JSON.parse(logs[0].inputReference) as { campaignId: string }).campaignId, "setup-campaign");
     assert.equal(logs[0].decisionResult, null);
     assert.match(logs[0].outputSummary ?? "", /provider unavailable/);
+    await assert.rejects(
+      () => generateCampaignKnowledgeReport(owner, "setup-campaign"),
+      /AI setup retry state/
+    );
 
     console.log("llm-check: invalid structure creates retry state without setup mutation");
     await resetAndSeedDemoData();
@@ -157,6 +176,45 @@ async function main() {
     logs = await getAiLogs();
     assert.equal(logs.filter((log) => log.status === "retry_required").length, 1);
     assert.equal(logs.filter((log) => log.status === "succeeded").length, 1);
+
+    console.log("llm-check: retry state blocks report approval");
+    await resetAndSeedDemoData();
+    await answerSetupQuestion(owner, "setup-q-topic", {
+      answerText: "Include packaging reuse ideas; exclude unrelated logistics ideas.",
+      decisionTitle: "Campaign scope"
+    });
+    await answerSetupQuestion(owner, "setup-q-review-packet", {
+      answerText: "Require problem, expected benefit, feasibility signal, and production context.",
+      decisionTitle: "Minimum review packet"
+    });
+    const staleApprovalReport = await generateCampaignKnowledgeReport(owner, "setup-campaign");
+    await requestAiSetupQuestion(owner, "setup-campaign", {
+      provider: async () => {
+        throw new Error("provider unavailable");
+      }
+    });
+    await assert.rejects(
+      () => approveCampaignKnowledgeReport(owner, staleApprovalReport.id),
+      /AI setup retry state/
+    );
+
+    console.log("llm-check: stale setup snapshot creates retry without AI question");
+    await resetAndSeedDemoData();
+    const beforeStaleCount = await countSetupQuestions();
+    const stale = await requestAiSetupQuestion(owner, "setup-campaign", {
+      provider: async (request) => {
+        await answerSetupQuestion(owner, "setup-q-topic", {
+          answerText: "Concurrent owner answer changes setup while AI is thinking.",
+          decisionTitle: "Concurrent campaign scope"
+        });
+
+        return provider(request);
+      }
+    });
+    assert.equal(stale.status, "retry_required");
+    assert.equal(await countSetupQuestions(), beforeStaleCount);
+    logs = await getAiLogs();
+    assert.match(logs[0].outputSummary ?? "", /changed while AI was generating/i);
 
     console.log("llm-check: passed");
   } finally {

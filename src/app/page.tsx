@@ -405,7 +405,7 @@ export default async function Home() {
                       <h3>Agent Question Queue</h3>
                       <form action={requestAiSetupQuestionAction}>
                         <input name="campaignId" type="hidden" value={setupView.campaign.id} />
-                        <button disabled={!session} type="submit">
+                        <button disabled={!session || !setupView.canManageSetup} type="submit">
                           Ask AI
                         </button>
                       </form>
@@ -521,14 +521,22 @@ export default async function Home() {
                     <div className="approval-row">
                       <form action={generateCampaignKnowledgeReportAction}>
                         <input name="campaignId" type="hidden" value={setupView.campaign.id} />
-                        <button disabled={!session} type="submit">
+                        <button disabled={!session || !setupView.canManageSetup || setupView.aiRetryStates.length > 0} type="submit">
                           Generate report
                         </button>
                       </form>
                       {setupView.latestReport?.status === "draft" ? (
                         <form action={approveCampaignKnowledgeReportAction}>
                           <input name="reportId" type="hidden" value={setupView.latestReport.id} />
-                          <button disabled={!session || setupView.openHardBlockerCount > 0} type="submit">
+                          <button
+                            disabled={
+                              !session ||
+                              !setupView.canManageSetup ||
+                              setupView.openHardBlockerCount > 0 ||
+                              setupView.aiRetryStates.length > 0
+                            }
+                            type="submit"
+                          >
                             Approve report
                           </button>
                         </form>

@@ -307,6 +307,49 @@ function buildCampaignSetupAiReference(
   };
 }
 
+async function buildCampaignSetupAiReferenceForUpdate(
+  tx: SetupTx,
+  campaignId: string,
+  attemptStartedAt: Date
+): Promise<CampaignSetupAiReference> {
+  const openQuestions = await tx
+    .select({ id: campaignSetupQuestions.id })
+    .from(campaignSetupQuestions)
+    .where(and(eq(campaignSetupQuestions.campaignId, campaignId), eq(campaignSetupQuestions.status, "open")))
+    .for("update");
+  const structuredDecisions = await tx
+    .select({ id: campaignSetupDecisions.id })
+    .from(campaignSetupDecisions)
+    .where(eq(campaignSetupDecisions.campaignId, campaignId))
+    .for("update");
+
+  return {
+    attemptStartedAt: attemptStartedAt.toISOString(),
+    campaignId,
+    latestReportId: null,
+    openQuestionIds: openQuestions.map((question) => question.id),
+    structuredDecisionIds: structuredDecisions.map((decision) => decision.id)
+  };
+}
+
+function sameStringSet(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightValues = new Set(right);
+
+  return left.every((value) => rightValues.has(value));
+}
+
+function setupAiReferencesMatch(left: CampaignSetupAiReference, right: CampaignSetupAiReference) {
+  return (
+    left.campaignId === right.campaignId &&
+    sameStringSet(left.openQuestionIds, right.openQuestionIds) &&
+    sameStringSet(left.structuredDecisionIds, right.structuredDecisionIds)
+  );
+}
+
 function getCampaignSetupAiContext(view: Awaited<ReturnType<typeof getCampaignSetupView>>): CampaignSetupPromptContext {
   return {
     campaign: {
@@ -356,6 +399,12 @@ function getBlockingAiRetryStates(aiLogs: Awaited<ReturnType<typeof getCampaignS
   const [latestAttempt] = aiLogs;
 
   return latestAttempt?.log.status === "retry_required" ? [latestAttempt.log] : [];
+}
+
+function assertNoAiRetryState(view: Awaited<ReturnType<typeof getCampaignSetupView>>, action: string) {
+  if (view.aiRetryStates.length > 0) {
+    throw new Error(`AI setup retry state must be resolved before ${action}.`);
+  }
 }
 
 function getErrorMessage(error: unknown) {
@@ -460,7 +509,15 @@ export async function getAuthorizedCampaignSetupView(session: DemoSession, campa
     throw new Error("Only campaign R&D members can view setup.");
   }
 
-  return getCampaignSetupView(campaignId);
+  const [view, canManageSetup] = await Promise.all([
+    getCampaignSetupView(campaignId),
+    canManageCampaignLifecycle(session, campaignId)
+  ]);
+
+  return {
+    ...view,
+    canManageSetup
+  };
 }
 
 export async function answerSetupQuestion(
@@ -675,10 +732,48 @@ export async function requestAiSetupQuestion(
     const now = new Date();
     const logId = newId("ai-decision");
     const questionId = newId("setup-question");
+    let transactionResult:
+      | {
+          logId: string;
+          questionId: string;
+          status: "succeeded";
+        }
+      | {
+          logId: string;
+          status: "retry_required";
+        }
+      | null = null;
 
     await db.transaction(async (tx) => {
       const lockedCampaign = await getSpecificCampaignForUpdate(tx, campaignId);
       assertCampaignSetupMutable(lockedCampaign, "request AI setup questions");
+      const originalReference = parseCampaignSetupAiReference(inputReference);
+      const currentReference = await buildCampaignSetupAiReferenceForUpdate(tx, campaignId, attemptStartedAt);
+
+      if (!originalReference || !setupAiReferencesMatch(originalReference, currentReference)) {
+        const outputSummary = "Campaign setup changed while AI was generating; retry required.";
+        await tx.insert(aiDecisionLogs).values({
+          createdAt: now,
+          decisionResult: aiResult.parsedQuestion,
+          id: logId,
+          inputReference,
+          model: aiResult.model,
+          outputSummary,
+          purpose: setupQuestionAiPurpose,
+          rawResponse: aiResult.rawResponse,
+          status: "retry_required"
+        });
+        await writeAiSetupAudit(tx, "campaign.setup.ai_question.retry_required", campaignId, "AI setup question retry required.", {
+          error: outputSummary,
+          logId,
+          requestedByUserId: session.user.id
+        });
+        transactionResult = {
+          logId,
+          status: "retry_required"
+        };
+        return;
+      }
 
       await tx.insert(aiDecisionLogs).values({
         createdAt: now,
@@ -709,13 +804,18 @@ export async function requestAiSetupQuestion(
         questionId,
         requestedByUserId: session.user.id
       });
+      transactionResult = {
+        logId,
+        questionId,
+        status: "succeeded"
+      };
     });
 
-    return {
-      logId,
-      questionId,
-      status: "succeeded" as const
-    };
+    if (!transactionResult) {
+      throw new Error("AI setup question transaction did not complete.");
+    }
+
+    return transactionResult;
   } catch (error) {
     const now = new Date();
     const logId = newId("ai-decision");
@@ -780,6 +880,7 @@ export async function generateCampaignKnowledgeReport(session: DemoSession, camp
   const campaign = await getSpecificCampaign(campaignId);
   assertCampaignSetupMutable(campaign, "generate campaign knowledge reports");
   const view = await getCampaignSetupView(campaignId);
+  assertNoAiRetryState(view, "generating a Campaign Knowledge Report");
   const now = new Date();
   const report = {
     campaignId,
@@ -794,6 +895,7 @@ export async function generateCampaignKnowledgeReport(session: DemoSession, camp
   await db.transaction(async (tx) => {
     const lockedCampaign = await getSpecificCampaignForUpdate(tx, campaignId);
     assertCampaignSetupMutable(lockedCampaign, "generate campaign knowledge reports");
+    assertNoAiRetryState(await getCampaignSetupView(campaignId), "generating a Campaign Knowledge Report");
     await tx.insert(campaignKnowledgeReports).values(report);
     await writeSetupAudit(tx, session, "campaign.knowledge_report.generated", campaignId, "Campaign knowledge report generated.", {
       reportId: report.id
@@ -825,6 +927,7 @@ export async function approveCampaignKnowledgeReport(session: DemoSession, repor
     }
 
     const view = await getCampaignSetupView(currentReport.campaignId);
+    assertNoAiRetryState(view, "approving a Campaign Knowledge Report");
     if (view.openHardBlockerCount > 0) {
       throw new Error("Campaign Knowledge Report cannot be approved while setup hard blockers remain.");
     }
@@ -855,9 +958,7 @@ export async function approveCampaignKnowledgeReport(session: DemoSession, repor
 
 export async function assertCampaignSetupReadyForIntake(campaignId: string) {
   const view = await getCampaignSetupView(campaignId);
-  if (view.aiRetryStates.length > 0) {
-    throw new Error("AI setup retry state must be resolved before opening intake.");
-  }
+  assertNoAiRetryState(view, "opening intake");
   if (view.openHardBlockerCount > 0) {
     throw new Error("Setup hard blockers prevent opening intake.");
   }
