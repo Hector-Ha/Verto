@@ -88,6 +88,89 @@ export const campaignMemberships = mysqlTable(
   (table) => [primaryKey({ columns: [table.campaignId, table.userId, table.membershipRole] })]
 );
 
+const setupAreas = ["topic", "intent", "review_packet", "rules_memory", "final_review"] as const;
+
+export const campaignSetupQuestions = mysqlTable("campaign_setup_questions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  setupArea: mysqlEnum("setup_area", setupAreas).notNull(),
+  questionText: text("question_text").notNull(),
+  rationale: text("rationale").notNull(),
+  recommendedAnswer: text("recommended_answer"),
+  priority: mysqlEnum("priority", ["hard_blocker", "warning", "clarity"]).notNull(),
+  status: mysqlEnum("status", ["open", "answered", "dismissed"]).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const campaignSetupAnswers = mysqlTable("campaign_setup_answers", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id", { length: 64 })
+    .notNull()
+    .references(() => campaignSetupQuestions.id, { onDelete: "cascade" }),
+  authorUserId: varchar("author_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id),
+  setupArea: mysqlEnum("setup_area", setupAreas).notNull(),
+  decisionTitle: varchar("decision_title", { length: 255 }).notNull(),
+  answerText: text("answer_text").notNull(),
+  status: mysqlEnum("status", ["pending_owner_approval", "approved", "rejected"]).notNull(),
+  isIntentionalAmbiguity: boolean("is_intentional_ambiguity").notNull().default(false),
+  isContextOverride: boolean("is_context_override").notNull().default(false),
+  ownerEditedByUserId: varchar("owner_edited_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  approvedByUserId: varchar("approved_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  approvedAt: timestamp("approved_at"),
+  rejectedByUserId: varchar("rejected_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const campaignSetupDecisions = mysqlTable("campaign_setup_decisions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  sourceAnswerId: varchar("source_answer_id", { length: 64 }).references(() => campaignSetupAnswers.id, {
+    onDelete: "set null"
+  }),
+  setupArea: mysqlEnum("setup_area", setupAreas).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  value: text("value").notNull(),
+  isIntentionalAmbiguity: boolean("is_intentional_ambiguity").notNull().default(false),
+  isContextOverride: boolean("is_context_override").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const campaignKnowledgeReports = mysqlTable("campaign_knowledge_reports", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  html: text("html").notNull(),
+  status: mysqlEnum("status", ["draft", "approved"]).notNull(),
+  generatedAt: timestamp("generated_at").notNull(),
+  approvedByUserId: varchar("approved_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
 export const ideaSourceType = mysqlEnum("source_type", ["employee_submission", "seed_demo"]);
 
 export const ideas = mysqlTable("ideas", {

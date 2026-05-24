@@ -9,6 +9,7 @@ import {
   DEMO_IDEA_STATES,
   DEMO_IDEAS,
   DEMO_ROLES,
+  DEMO_SETUP_QUESTIONS,
   DEMO_USER_ROLES,
   DEMO_USERS
 } from "./data";
@@ -110,6 +111,47 @@ export async function seedDemoData() {
           ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
         `,
         [campaignId, userId, membershipRole, BASELINE_TIMESTAMP]
+      );
+    }
+
+    for (const question of DEMO_SETUP_QUESTIONS) {
+      await connection.execute(
+        `
+          INSERT INTO campaign_setup_questions (
+            id,
+            campaign_id,
+            setup_area,
+            question_text,
+            rationale,
+            recommended_answer,
+            priority,
+            status,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            campaign_id = VALUES(campaign_id),
+            setup_area = VALUES(setup_area),
+            question_text = VALUES(question_text),
+            rationale = VALUES(rationale),
+            recommended_answer = VALUES(recommended_answer),
+            priority = VALUES(priority),
+            status = VALUES(status),
+            updated_at = VALUES(updated_at)
+        `,
+        [
+          question.id,
+          question.campaignId,
+          question.setupArea,
+          question.questionText,
+          question.rationale,
+          question.recommendedAnswer,
+          question.priority,
+          question.status,
+          BASELINE_TIMESTAMP,
+          BASELINE_TIMESTAMP
+        ]
       );
     }
 

@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { canManageCampaignLifecycle } from "../auth/permissions";
 import type { DemoSession } from "../auth/session";
+import { assertCampaignSetupReadyForIntake } from "../campaign-setup/service";
 import { db } from "../db/client";
 import {
   auditEvents,
@@ -318,6 +319,10 @@ export async function changeCampaignLifecycle(
   }
 
   validateSchedule(input);
+
+  if (["ready_to_open", "intake_scheduled", "intake_open"].includes(input.nextStatus)) {
+    await assertCampaignSetupReadyForIntake(campaignId);
+  }
 
   if (input.nextStatus === "review_complete") {
     const readyReviewIdeas = await countReadyReviewIdeas(campaignId);

@@ -104,10 +104,11 @@ async function main() {
     const snapshot = await getDemoSnapshot();
     assert.equal(snapshot.userCount, 5);
     assert.equal(snapshot.roleCount, 5);
-    assert.equal(snapshot.campaignCount, 2);
+    assert.equal(snapshot.campaignCount, 3);
     assert.equal(snapshot.ideaCount, 1);
     assert(snapshot.campaigns.some((campaign) => campaign.id === "general-campaign" && campaign.lifecycleStatus === "always_open"));
     assert(snapshot.campaigns.some((campaign) => campaign.id === "specific-campaign" && campaign.lifecycleStatus === "intake_open"));
+    assert(snapshot.campaigns.some((campaign) => campaign.id === "setup-campaign" && campaign.lifecycleStatus === "setup_review"));
 
     console.log("smoke: boot Next.js route");
     const port = Number(process.env.SMOKE_PORT ?? "3107");

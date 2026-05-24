@@ -92,6 +92,17 @@ export const DEMO_CAMPAIGNS = [
     publicPrompt: "Share practical ways to reuse or extend the life of battery materials in manufacturing workflows.",
     publicTitle: "Battery Reuse Ideas",
     type: "specific"
+  },
+  {
+    createdByUserId: "specific-campaign-owner",
+    id: "setup-campaign",
+    intakeEndsAt: null,
+    intakeStartsAt: null,
+    lifecycleStatus: "setup_review",
+    name: "Packaging Reuse Setup Campaign",
+    publicPrompt: "Share practical packaging reuse ideas that could reduce waste without slowing production.",
+    publicTitle: "Packaging Reuse Ideas",
+    type: "specific"
   }
 ] as const;
 
@@ -102,7 +113,54 @@ export const DEMO_CAMPAIGN_MEMBERSHIPS = [
   ["general-campaign", "rd-team-member", "member"],
   ["specific-campaign", "rd-manager", "manager"],
   ["specific-campaign", "specific-campaign-owner", "owner"],
-  ["specific-campaign", "rd-team-member", "member"]
+  ["specific-campaign", "rd-team-member", "member"],
+  ["setup-campaign", "rd-manager", "manager"],
+  ["setup-campaign", "specific-campaign-owner", "owner"],
+  ["setup-campaign", "rd-team-member", "member"]
+] as const;
+
+export const DEMO_SETUP_QUESTIONS = [
+  {
+    campaignId: "setup-campaign",
+    id: "setup-q-topic",
+    priority: "hard_blocker",
+    questionText: "Which employee idea types should this campaign include and exclude?",
+    rationale: "AI needs campaign scope before it can judge whether an idea belongs in this campaign.",
+    recommendedAnswer:
+      "Include packaging reuse ideas that reduce material waste; exclude unrelated logistics or procurement ideas.",
+    setupArea: "topic",
+    status: "open"
+  },
+  {
+    campaignId: "setup-campaign",
+    id: "setup-q-review-packet",
+    priority: "hard_blocker",
+    questionText: "What minimum information must an employee idea contain before R&D reviews it?",
+    rationale: "Minimum review packet gaps should trigger clarification instead of wasting R&D review time.",
+    recommendedAnswer: "Require the problem, expected benefit, feasibility signal, and relevant production context.",
+    setupArea: "review_packet",
+    status: "open"
+  },
+  {
+    campaignId: "setup-campaign",
+    id: "setup-q-equipment-warning",
+    priority: "warning",
+    questionText: "How should AI treat packaging ideas that require new capital equipment?",
+    rationale: "Equipment-heavy ideas may still be useful, but AI should flag them with lower confidence.",
+    recommendedAnswer: "Keep them visible as warnings unless the owner defines them as out of scope.",
+    setupArea: "rules_memory",
+    status: "open"
+  },
+  {
+    campaignId: "setup-campaign",
+    id: "setup-q-ambiguity",
+    priority: "clarity",
+    questionText: "Should broad packaging-adjacent ideas remain allowed when they are not clearly reuse ideas?",
+    rationale: "Intentional ambiguity can be useful, but it must be recorded so AI does not over-filter.",
+    recommendedAnswer: "Allow useful adjacent variants but record the ambiguity in the knowledge report.",
+    setupArea: "intent",
+    status: "open"
+  }
 ] as const;
 
 export const DEMO_IDEAS = [

@@ -4,6 +4,10 @@ import { createMysqlConnection } from "../db/config";
 import { seedDemoData } from "./seed";
 
 const RESET_TABLES = [
+  "campaign_knowledge_reports",
+  "campaign_setup_decisions",
+  "campaign_setup_answers",
+  "campaign_setup_questions",
   "clarification_requests",
   "ai_decision_logs",
   "audit_events",

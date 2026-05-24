@@ -466,6 +466,152 @@ label span {
   grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
 }
 
+.setup-shell {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.setup-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 2fr repeat(3, minmax(0, 1fr));
+}
+
+.setup-summary > div {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  min-height: 86px;
+  padding: 13px;
+}
+
+.setup-summary span,
+.muted-copy {
+  color: var(--muted);
+}
+
+.setup-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.setup-column {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+}
+
+.setup-item,
+.knowledge-report {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+}
+
+.setup-item-heading {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.setup-item p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup-answer-form {
+  display: grid;
+  gap: 10px;
+}
+
+.checkbox-line {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.checkbox-line input {
+  width: auto;
+}
+
+.approval-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.approval-row form {
+  display: inline-flex;
+}
+
+.approval-row button,
+.setup-answer-form button,
+.knowledge-report button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 9px 12px;
+}
+
+.approval-row button:disabled,
+.setup-answer-form button:disabled,
+.knowledge-report button:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  cursor: default;
+}
+
+.decision-list {
+  display: grid;
+  gap: 10px;
+}
+
+.decision {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.decision span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.decision div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-preview {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  line-height: 1.5;
+  max-height: 360px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.report-preview h1 {
+  color: var(--ink);
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.report-preview h2 {
+  font-size: 1rem;
+  margin-top: 14px;
+}
+
 @media (max-width: 780px) {
   .shell {
     padding: 16px;
@@ -491,7 +637,9 @@ label span {
 
   .campaign-controls,
   .control-row,
-  .lifecycle-form {
+  .lifecycle-form,
+  .setup-grid,
+  .setup-summary {
     grid-template-columns: 1fr;
   }
 

@@ -13,6 +13,10 @@ import {
   recordIdeaReviewOutcome,
   removeCampaignTeamMember
 } from "../src/server/campaigns/service";
+import {
+  approveCampaignKnowledgeReport,
+  generateCampaignKnowledgeReport
+} from "../src/server/campaign-setup/service";
 import { closeDatabase, db } from "../src/server/db/client";
 import { runMigrations } from "../src/server/db/migrate";
 import { auditEvents, campaignMemberships, campaigns, ideaStateHistory, ideas } from "../src/server/db/schema";
@@ -153,6 +157,8 @@ async function main() {
     );
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "setup_in_progress" });
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "setup_review" });
+    const lifecycleReport = await generateCampaignKnowledgeReport(owner, "owner-created-campaign");
+    await approveCampaignKnowledgeReport(owner, lifecycleReport.id);
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "ready_to_open" });
     await changeCampaignLifecycle(owner, "owner-created-campaign", {
       intakeEndsAt: new Date("2026-02-15T17:00:00Z"),
