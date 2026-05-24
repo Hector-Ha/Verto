@@ -163,6 +163,32 @@ export const DEMO_SETUP_QUESTIONS = [
   }
 ] as const;
 
+export const DEMO_SETUP_DECISIONS = [
+  {
+    campaignId: "specific-campaign",
+    id: "setup-decision-specific-baseline",
+    isContextOverride: false,
+    isIntentionalAmbiguity: false,
+    setupArea: "topic",
+    sourceAnswerId: null,
+    title: "Campaign scope",
+    value: "Battery reuse ideas must describe practical reuse or life-extension paths for battery materials in manufacturing workflows."
+  }
+] as const;
+
+export const DEMO_KNOWLEDGE_REPORTS = [
+  {
+    approvedAt: BASELINE_TIMESTAMP,
+    approvedByUserId: "specific-campaign-owner",
+    campaignId: "specific-campaign",
+    generatedAt: BASELINE_TIMESTAMP,
+    html:
+      "<article><h1>Campaign Knowledge Report</h1><p>Battery Reuse Ideas</p><h2>Approved Setup</h2><ul><li><strong>Campaign scope</strong>: Battery reuse ideas must describe practical reuse or life-extension paths for battery materials in manufacturing workflows.</li></ul></article>",
+    id: "knowledge-report-specific-approved",
+    status: "approved"
+  }
+] as const;
+
 export const DEMO_IDEAS = [
   {
     campaignId: "general-campaign",

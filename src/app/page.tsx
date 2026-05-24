@@ -15,8 +15,8 @@ import {
 } from "@/server/campaign-setup/actions";
 import { switchRoleAction } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/cookies";
-import { getDemoPermissionSummary } from "@/server/auth/permissions";
-import { getCampaignSetupView } from "@/server/campaign-setup/service";
+import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
+import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -33,21 +33,29 @@ function formatDateTimeLocal(date: Date | null) {
 export default async function Home() {
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
-  let setupView: Awaited<ReturnType<typeof getCampaignSetupView>> | null = null;
+  let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
   let databaseError: string | null = null;
 
   try {
-    [snapshot, roleOptions, session, campaignOperations, setupView] = await Promise.all([
+    [snapshot, roleOptions, session] = await Promise.all([
       getDemoSnapshot(),
       getDemoRoleSwitchOptions(),
-      getCurrentSession(),
-      getCampaignOperationsView(),
-      getCampaignSetupView("setup-campaign")
+      getCurrentSession()
     ]);
-    permissionSummary = session ? await getDemoPermissionSummary(session) : null;
+    if (session) {
+      const [nextPermissionSummary, nextCampaignOperations, canReadSetup] = await Promise.all([
+        getDemoPermissionSummary(session),
+        getCampaignOperationsView(session),
+        canContributeToCampaign(session, "setup-campaign")
+      ]);
+
+      permissionSummary = nextPermissionSummary;
+      campaignOperations = nextCampaignOperations;
+      setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
+    }
   } catch (error) {
     databaseError = error instanceof Error ? error.message : "Unknown database error";
   }

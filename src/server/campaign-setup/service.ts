@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 
 import { canContributeToCampaign, canManageCampaignLifecycle } from "../auth/permissions";
 import type { DemoSession } from "../auth/session";
@@ -17,8 +17,11 @@ import {
 type SetupArea = (typeof campaignSetupQuestions.$inferSelect)["setupArea"];
 type SetupQuestion = typeof campaignSetupQuestions.$inferSelect;
 type SetupAnswer = typeof campaignSetupAnswers.$inferSelect;
+type SetupCampaign = typeof campaigns.$inferSelect;
+type SetupTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const campaignSetupAreas = ["topic", "intent", "review_packet", "rules_memory", "final_review"] as const;
+const setupMutableStatuses: Array<SetupCampaign["lifecycleStatus"]> = ["setup_in_progress", "setup_review"];
 
 export function isCampaignSetupArea(value: unknown): value is SetupArea {
   return typeof value === "string" && campaignSetupAreas.includes(value as SetupArea);
@@ -67,6 +70,20 @@ async function getSpecificCampaign(campaignId: string) {
   return campaign;
 }
 
+async function getSpecificCampaignForUpdate(tx: SetupTx, campaignId: string) {
+  const [campaign] = await tx
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1)
+    .for("update");
+  if (!campaign || campaign.type !== "specific") {
+    throw new Error("Specific campaign not found.");
+  }
+
+  return campaign;
+}
+
 async function getQuestion(questionId: string) {
   const [question] = await db.select().from(campaignSetupQuestions).where(eq(campaignSetupQuestions.id, questionId)).limit(1);
   if (!question) {
@@ -97,8 +114,14 @@ async function assertCanDraftSetup(session: DemoSession, campaignId: string) {
   }
 }
 
+function assertCampaignSetupMutable(campaign: SetupCampaign, action: string) {
+  if (!setupMutableStatuses.includes(campaign.lifecycleStatus)) {
+    throw new Error(`Cannot ${action} after campaign setup is complete.`);
+  }
+}
+
 async function writeSetupAudit(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: SetupTx,
   session: DemoSession,
   eventType: string,
   campaignId: string,
@@ -119,7 +142,7 @@ async function writeSetupAudit(
 }
 
 async function insertDecision(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: SetupTx,
   answer: Pick<
     SetupAnswer,
     "answerText" | "campaignId" | "decisionTitle" | "id" | "isContextOverride" | "isIntentionalAmbiguity" | "setupArea"
@@ -137,6 +160,96 @@ async function insertDecision(
     updatedAt: new Date(),
     value: answer.answerText
   });
+}
+
+async function getQuestionForUpdate(tx: SetupTx, questionId: string) {
+  const [question] = await tx
+    .select()
+    .from(campaignSetupQuestions)
+    .where(eq(campaignSetupQuestions.id, questionId))
+    .limit(1)
+    .for("update");
+  if (!question) {
+    throw new Error("Setup question not found.");
+  }
+
+  return question;
+}
+
+async function getAnswerForUpdate(tx: SetupTx, answerId: string) {
+  const [answer] = await tx
+    .select()
+    .from(campaignSetupAnswers)
+    .where(eq(campaignSetupAnswers.id, answerId))
+    .limit(1)
+    .for("update");
+  if (!answer) {
+    throw new Error("Setup answer not found.");
+  }
+
+  return answer;
+}
+
+async function getKnowledgeReportForUpdate(tx: SetupTx, reportId: string) {
+  const [report] = await tx
+    .select()
+    .from(campaignKnowledgeReports)
+    .where(eq(campaignKnowledgeReports.id, reportId))
+    .limit(1)
+    .for("update");
+  if (!report) {
+    throw new Error("Campaign Knowledge Report not found.");
+  }
+
+  return report;
+}
+
+async function getActiveAnswersForQuestion(tx: SetupTx, questionId: string) {
+  return tx
+    .select()
+    .from(campaignSetupAnswers)
+    .where(
+      and(
+        eq(campaignSetupAnswers.questionId, questionId),
+        inArray(campaignSetupAnswers.status, ["pending_owner_approval", "approved"])
+      )
+    )
+    .for("update");
+}
+
+function assertQuestionAcceptsNewAnswer(question: SetupQuestion, activeAnswers: SetupAnswer[]) {
+  if (question.status !== "open") {
+    throw new Error("Setup question is already answered or dismissed.");
+  }
+
+  if (activeAnswers.some((answer) => answer.status === "approved")) {
+    throw new Error("Setup question is already answered.");
+  }
+
+  if (activeAnswers.some((answer) => answer.status === "pending_owner_approval")) {
+    throw new Error("Setup question already has an answer pending owner approval.");
+  }
+}
+
+function assertPendingAnswerCanBeApproved(question: SetupQuestion, activeAnswers: SetupAnswer[], answerId: string) {
+  if (question.status !== "open") {
+    throw new Error("Setup question is already answered or dismissed.");
+  }
+
+  if (activeAnswers.some((answer) => answer.status === "pending_owner_approval" && answer.id !== answerId)) {
+    throw new Error("Setup question already has another answer pending owner approval.");
+  }
+
+  if (activeAnswers.some((answer) => answer.status === "approved" && answer.id !== answerId)) {
+    throw new Error("Setup question is already answered.");
+  }
+}
+
+async function invalidateCampaignKnowledgeReports(tx: SetupTx, campaignId: string) {
+  await tx
+    .update(campaignKnowledgeReports)
+    .set({ status: "stale", updatedAt: new Date() })
+    .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), ne(campaignKnowledgeReports.status, "stale")));
 }
 
 export async function getCampaignSetupView(campaignId: string) {
@@ -158,7 +271,7 @@ export async function getCampaignSetupView(campaignId: string) {
   const [latestReport] = await db
     .select()
     .from(campaignKnowledgeReports)
-    .where(eq(campaignKnowledgeReports.campaignId, campaignId))
+    .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), ne(campaignKnowledgeReports.status, "stale")))
     .orderBy(desc(campaignKnowledgeReports.generatedAt))
     .limit(1);
 
@@ -188,17 +301,22 @@ export async function getCampaignSetupView(campaignId: string) {
   };
 }
 
+export async function getAuthorizedCampaignSetupView(session: DemoSession, campaignId: string) {
+  if (!(await canContributeToCampaign(session, campaignId))) {
+    throw new Error("Only campaign R&D members can view setup.");
+  }
+
+  return getCampaignSetupView(campaignId);
+}
+
 export async function answerSetupQuestion(
   session: DemoSession,
   questionId: string,
   input: AnswerSetupQuestionInput
 ) {
   const question = await getQuestion(questionId);
-  if (question.status !== "open") {
-    throw new Error("Setup question is already answered or dismissed.");
-  }
-
-  await getSpecificCampaign(question.campaignId);
+  const campaign = await getSpecificCampaign(question.campaignId);
+  assertCampaignSetupMutable(campaign, "answer setup questions");
   await assertCanDraftSetup(session, question.campaignId);
 
   const canApproveOwnAnswer = await canManageCampaignLifecycle(session, question.campaignId);
@@ -207,12 +325,18 @@ export async function answerSetupQuestion(
   const answerId = newId("setup-answer");
 
   await db.transaction(async (tx) => {
+    const lockedQuestion = await getQuestionForUpdate(tx, questionId);
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, lockedQuestion.campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "answer setup questions");
+    const activeAnswers = await getActiveAnswersForQuestion(tx, questionId);
+    assertQuestionAcceptsNewAnswer(lockedQuestion, activeAnswers);
+
     await tx.insert(campaignSetupAnswers).values({
       answerText: input.answerText,
       approvedAt: canApproveOwnAnswer ? now : null,
       approvedByUserId: canApproveOwnAnswer ? session.user.id : null,
       authorUserId: session.user.id,
-      campaignId: question.campaignId,
+      campaignId: lockedQuestion.campaignId,
       createdAt: now,
       decisionTitle: input.decisionTitle,
       id: answerId,
@@ -222,7 +346,7 @@ export async function answerSetupQuestion(
       rejectedAt: null,
       rejectedByUserId: null,
       rejectionReason: null,
-      setupArea: question.setupArea,
+      setupArea: lockedQuestion.setupArea,
       status,
       updatedAt: now
     });
@@ -234,20 +358,21 @@ export async function answerSetupQuestion(
         .where(eq(campaignSetupQuestions.id, questionId));
       await insertDecision(tx, {
         answerText: input.answerText,
-        campaignId: question.campaignId,
+        campaignId: lockedQuestion.campaignId,
         decisionTitle: input.decisionTitle,
         id: answerId,
         isContextOverride: input.isContextOverride ?? false,
         isIntentionalAmbiguity: input.isIntentionalAmbiguity ?? false,
-        setupArea: question.setupArea
+        setupArea: lockedQuestion.setupArea
       });
+      await invalidateCampaignKnowledgeReports(tx, lockedQuestion.campaignId);
     }
 
     await writeSetupAudit(
       tx,
       session,
       canApproveOwnAnswer ? "campaign.setup.answer.approved" : "campaign.setup.answer.pending",
-      question.campaignId,
+      lockedQuestion.campaignId,
       canApproveOwnAnswer ? "Setup answer approved by owner." : "Setup answer pending owner approval.",
       { answerId, questionId }
     );
@@ -263,11 +388,17 @@ export async function editPendingSetupAnswer(
 ) {
   const answer = await getAnswer(answerId);
   await assertCanManageSetup(session, answer.campaignId, "edit pending setup answers");
-  if (answer.status !== "pending_owner_approval") {
-    throw new Error("Only pending setup answers can be edited.");
-  }
+  const campaign = await getSpecificCampaign(answer.campaignId);
+  assertCampaignSetupMutable(campaign, "edit pending setup answers");
 
   await db.transaction(async (tx) => {
+    const currentAnswer = await getAnswerForUpdate(tx, answerId);
+    if (currentAnswer.status !== "pending_owner_approval") {
+      throw new Error("Only pending setup answers can be edited.");
+    }
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, currentAnswer.campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "edit pending setup answers");
+
     await tx
       .update(campaignSetupAnswers)
       .set({
@@ -275,8 +406,8 @@ export async function editPendingSetupAnswer(
         ownerEditedByUserId: session.user.id,
         updatedAt: new Date()
       })
-      .where(eq(campaignSetupAnswers.id, answerId));
-    await writeSetupAudit(tx, session, "campaign.setup.answer.edited", answer.campaignId, "Pending setup answer edited.", {
+      .where(and(eq(campaignSetupAnswers.id, answerId), eq(campaignSetupAnswers.status, "pending_owner_approval")));
+    await writeSetupAudit(tx, session, "campaign.setup.answer.edited", currentAnswer.campaignId, "Pending setup answer edited.", {
       answerId
     });
   });
@@ -285,17 +416,29 @@ export async function editPendingSetupAnswer(
 export async function approveSetupAnswer(session: DemoSession, answerId: string) {
   const answer = await getAnswer(answerId);
   await assertCanManageSetup(session, answer.campaignId, "approve setup answers");
+  const campaign = await getSpecificCampaign(answer.campaignId);
+  assertCampaignSetupMutable(campaign, "approve setup answers");
   if (answer.status !== "pending_owner_approval") {
     throw new Error("Only pending setup answers can be approved.");
   }
 
   const now = new Date();
-  const [currentAnswer] = await db.select().from(campaignSetupAnswers).where(eq(campaignSetupAnswers.id, answerId)).limit(1);
-  if (!currentAnswer) {
-    throw new Error("Setup answer not found.");
-  }
 
   await db.transaction(async (tx) => {
+    const lockedQuestion = await getQuestionForUpdate(tx, answer.questionId);
+    const currentAnswer = await getAnswerForUpdate(tx, answerId);
+    if (currentAnswer.status !== "pending_owner_approval") {
+      throw new Error("Only pending setup answers can be approved.");
+    }
+    if (currentAnswer.questionId !== lockedQuestion.id) {
+      throw new Error("Setup answer no longer belongs to the locked setup question.");
+    }
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, currentAnswer.campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "approve setup answers");
+
+    const activeAnswers = await getActiveAnswersForQuestion(tx, currentAnswer.questionId);
+    assertPendingAnswerCanBeApproved(lockedQuestion, activeAnswers, answerId);
+
     await tx
       .update(campaignSetupAnswers)
       .set({
@@ -304,12 +447,13 @@ export async function approveSetupAnswer(session: DemoSession, answerId: string)
         status: "approved",
         updatedAt: now
       })
-      .where(eq(campaignSetupAnswers.id, answerId));
+      .where(and(eq(campaignSetupAnswers.id, answerId), eq(campaignSetupAnswers.status, "pending_owner_approval")));
     await tx
       .update(campaignSetupQuestions)
       .set({ status: "answered", updatedAt: now })
       .where(eq(campaignSetupQuestions.id, currentAnswer.questionId));
     await insertDecision(tx, currentAnswer);
+    await invalidateCampaignKnowledgeReports(tx, currentAnswer.campaignId);
     await writeSetupAudit(tx, session, "campaign.setup.answer.approved", answer.campaignId, "Pending setup answer approved.", {
       answerId,
       questionId: currentAnswer.questionId
@@ -320,22 +464,33 @@ export async function approveSetupAnswer(session: DemoSession, answerId: string)
 export async function rejectSetupAnswer(session: DemoSession, answerId: string, input: RejectAnswerInput = {}) {
   const answer = await getAnswer(answerId);
   await assertCanManageSetup(session, answer.campaignId, "reject setup answers");
+  const campaign = await getSpecificCampaign(answer.campaignId);
+  assertCampaignSetupMutable(campaign, "reject setup answers");
   if (answer.status !== "pending_owner_approval") {
     throw new Error("Only pending setup answers can be rejected.");
   }
 
+  const now = new Date();
+
   await db.transaction(async (tx) => {
+    const currentAnswer = await getAnswerForUpdate(tx, answerId);
+    if (currentAnswer.status !== "pending_owner_approval") {
+      throw new Error("Only pending setup answers can be rejected.");
+    }
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, currentAnswer.campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "reject setup answers");
+
     await tx
       .update(campaignSetupAnswers)
       .set({
-        rejectedAt: new Date(),
+        rejectedAt: now,
         rejectedByUserId: session.user.id,
         rejectionReason: input.reason ?? null,
         status: "rejected",
-        updatedAt: new Date()
+        updatedAt: now
       })
-      .where(eq(campaignSetupAnswers.id, answerId));
-    await writeSetupAudit(tx, session, "campaign.setup.answer.rejected", answer.campaignId, "Pending setup answer rejected.", {
+      .where(and(eq(campaignSetupAnswers.id, answerId), eq(campaignSetupAnswers.status, "pending_owner_approval")));
+    await writeSetupAudit(tx, session, "campaign.setup.answer.rejected", currentAnswer.campaignId, "Pending setup answer rejected.", {
       answerId,
       reason: input.reason ?? null
     });
@@ -373,6 +528,8 @@ function renderKnowledgeReport(view: Awaited<ReturnType<typeof getCampaignSetupV
 
 export async function generateCampaignKnowledgeReport(session: DemoSession, campaignId: string) {
   await assertCanManageSetup(session, campaignId, "generate campaign knowledge reports");
+  const campaign = await getSpecificCampaign(campaignId);
+  assertCampaignSetupMutable(campaign, "generate campaign knowledge reports");
   const view = await getCampaignSetupView(campaignId);
   const now = new Date();
   const report = {
@@ -386,6 +543,8 @@ export async function generateCampaignKnowledgeReport(session: DemoSession, camp
   };
 
   await db.transaction(async (tx) => {
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "generate campaign knowledge reports");
     await tx.insert(campaignKnowledgeReports).values(report);
     await writeSetupAudit(tx, session, "campaign.knowledge_report.generated", campaignId, "Campaign knowledge report generated.", {
       reportId: report.id
@@ -402,26 +561,43 @@ export async function approveCampaignKnowledgeReport(session: DemoSession, repor
   }
 
   await assertCanManageSetup(session, report.campaignId, "approve campaign knowledge reports");
-  const view = await getCampaignSetupView(report.campaignId);
-  if (view.openHardBlockerCount > 0) {
-    throw new Error("Campaign Knowledge Report cannot be approved while setup hard blockers remain.");
-  }
+  const campaign = await getSpecificCampaign(report.campaignId);
+  assertCampaignSetupMutable(campaign, "approve campaign knowledge reports");
 
   await db.transaction(async (tx) => {
+    const currentReport = await getKnowledgeReportForUpdate(tx, reportId);
+    const lockedCampaign = await getSpecificCampaignForUpdate(tx, currentReport.campaignId);
+    assertCampaignSetupMutable(lockedCampaign, "approve campaign knowledge reports");
+    if (currentReport.status === "stale") {
+      throw new Error("Campaign Knowledge Report must be regenerated after setup changes.");
+    }
+    if (currentReport.status !== "draft") {
+      throw new Error("Only draft Campaign Knowledge Reports can be approved.");
+    }
+
+    const view = await getCampaignSetupView(currentReport.campaignId);
+    if (view.openHardBlockerCount > 0) {
+      throw new Error("Campaign Knowledge Report cannot be approved while setup hard blockers remain.");
+    }
+    if (view.structuredSetup.length === 0) {
+      throw new Error("Campaign Knowledge Report requires an approved setup baseline before approval.");
+    }
+
+    const now = new Date();
     await tx
       .update(campaignKnowledgeReports)
       .set({
-        approvedAt: new Date(),
+        approvedAt: now,
         approvedByUserId: session.user.id,
         status: "approved",
-        updatedAt: new Date()
+        updatedAt: now
       })
-      .where(eq(campaignKnowledgeReports.id, reportId));
+      .where(and(eq(campaignKnowledgeReports.id, reportId), eq(campaignKnowledgeReports.status, "draft")));
     await writeSetupAudit(
       tx,
       session,
       "campaign.knowledge_report.approved",
-      report.campaignId,
+      currentReport.campaignId,
       "Campaign knowledge report approved.",
       { reportId }
     );
@@ -432,6 +608,20 @@ export async function assertCampaignSetupReadyForIntake(campaignId: string) {
   const view = await getCampaignSetupView(campaignId);
   if (view.openHardBlockerCount > 0) {
     throw new Error("Setup hard blockers prevent opening intake.");
+  }
+  if (view.structuredSetup.length === 0) {
+    throw new Error("Campaign Knowledge Report requires an approved setup baseline before opening intake.");
+  }
+
+  const [staleReport] = await db
+    .select({ id: campaignKnowledgeReports.id })
+    .from(campaignKnowledgeReports)
+    .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), eq(campaignKnowledgeReports.status, "stale")))
+    .orderBy(desc(campaignKnowledgeReports.updatedAt))
+    .limit(1);
+
+  if (!view.latestReport && staleReport) {
+    throw new Error("Campaign Knowledge Report must be regenerated and approved after setup changes.");
   }
 
   if (view.latestReport?.status !== "approved") {

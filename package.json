@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "db:migrate": "bun run src/server/db/migrate.ts",
     "db:seed": "bun run src/server/seed/seed.ts",
     "db:reset": "bun run src/server/seed/reset.ts",
@@ -18,6 +18,7 @@
     "drizzle-orm": "^0.45.2",
     "mysql2": "^3.22.3",
     "next": "^16.2.6",
+    "pingram": "^1.0.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

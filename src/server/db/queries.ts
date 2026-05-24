@@ -1,6 +1,7 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { DEMO_PERSONAS, type DemoPersonaId, type RoleId } from "../auth/personas";
+import type { DemoSession } from "../auth/session";
 import { getNextCampaignLifecycleStatuses } from "../campaigns/service";
 import { db } from "./client";
 import { campaignMemberships, campaigns, ideas, roles, userRoles, users } from "./schema";
@@ -110,7 +111,18 @@ export async function getDemoRoleSwitchOptionById(personaId: string) {
   return options.find((option) => option.personaId === (personaId as DemoPersonaId)) ?? null;
 }
 
-export async function getCampaignOperationsView() {
+export async function getCampaignOperationsView(session: DemoSession) {
+  const managingRole =
+    session.role.id === "rd_manager" ? "manager" : session.role.id === "specific_campaign_owner" ? "owner" : null;
+
+  if (!managingRole) {
+    return {
+      ownerOptions: [],
+      specificCampaigns: [],
+      teamMemberOptions: []
+    };
+  }
+
   const campaignRows = await db
     .select({
       id: campaigns.id,
@@ -121,8 +133,25 @@ export async function getCampaignOperationsView() {
       publicTitle: campaigns.publicTitle
     })
     .from(campaigns)
+    .innerJoin(
+      campaignMemberships,
+      and(
+        eq(campaignMemberships.campaignId, campaigns.id),
+        eq(campaignMemberships.userId, session.user.id),
+        eq(campaignMemberships.membershipRole, managingRole)
+      )
+    )
     .where(eq(campaigns.type, "specific"))
     .orderBy(campaigns.id);
+
+  const campaignIds = campaignRows.map((campaign) => campaign.id);
+  if (campaignIds.length === 0) {
+    return {
+      ownerOptions: [],
+      specificCampaigns: [],
+      teamMemberOptions: []
+    };
+  }
 
   const membershipRows = await db
     .select({
@@ -132,7 +161,8 @@ export async function getCampaignOperationsView() {
       userId: users.id
     })
     .from(campaignMemberships)
-    .innerJoin(users, eq(users.id, campaignMemberships.userId));
+    .innerJoin(users, eq(users.id, campaignMemberships.userId))
+    .where(inArray(campaignMemberships.campaignId, campaignIds));
 
   const ownerRows = await db
     .select({

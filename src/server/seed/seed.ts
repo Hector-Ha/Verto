@@ -8,7 +8,9 @@ import {
   DEMO_CAMPAIGNS,
   DEMO_IDEA_STATES,
   DEMO_IDEAS,
+  DEMO_KNOWLEDGE_REPORTS,
   DEMO_ROLES,
+  DEMO_SETUP_DECISIONS,
   DEMO_SETUP_QUESTIONS,
   DEMO_USER_ROLES,
   DEMO_USERS
@@ -149,6 +151,85 @@ export async function seedDemoData() {
           question.recommendedAnswer,
           question.priority,
           question.status,
+          BASELINE_TIMESTAMP,
+          BASELINE_TIMESTAMP
+        ]
+      );
+    }
+
+    for (const decision of DEMO_SETUP_DECISIONS) {
+      await connection.execute(
+        `
+          INSERT INTO campaign_setup_decisions (
+            id,
+            campaign_id,
+            source_answer_id,
+            setup_area,
+            title,
+            value,
+            is_intentional_ambiguity,
+            is_context_override,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            campaign_id = VALUES(campaign_id),
+            source_answer_id = VALUES(source_answer_id),
+            setup_area = VALUES(setup_area),
+            title = VALUES(title),
+            value = VALUES(value),
+            is_intentional_ambiguity = VALUES(is_intentional_ambiguity),
+            is_context_override = VALUES(is_context_override),
+            updated_at = VALUES(updated_at)
+        `,
+        [
+          decision.id,
+          decision.campaignId,
+          decision.sourceAnswerId,
+          decision.setupArea,
+          decision.title,
+          decision.value,
+          decision.isIntentionalAmbiguity,
+          decision.isContextOverride,
+          BASELINE_TIMESTAMP,
+          BASELINE_TIMESTAMP
+        ]
+      );
+    }
+
+    for (const report of DEMO_KNOWLEDGE_REPORTS) {
+      await connection.execute(
+        `
+          INSERT INTO campaign_knowledge_reports (
+            id,
+            campaign_id,
+            html,
+            status,
+            generated_at,
+            approved_by_user_id,
+            approved_at,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            campaign_id = VALUES(campaign_id),
+            html = VALUES(html),
+            status = VALUES(status),
+            generated_at = VALUES(generated_at),
+            approved_by_user_id = VALUES(approved_by_user_id),
+            approved_at = VALUES(approved_at),
+            updated_at = VALUES(updated_at)
+        `,
+        [
+          report.id,
+          report.campaignId,
+          report.html,
+          report.status,
+          report.generatedAt,
+          report.approvedByUserId,
+          report.approvedAt,
           BASELINE_TIMESTAMP,
           BASELINE_TIMESTAMP
         ]

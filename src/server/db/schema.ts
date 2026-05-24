@@ -161,7 +161,7 @@ export const campaignKnowledgeReports = mysqlTable("campaign_knowledge_reports",
     .notNull()
     .references(() => campaigns.id, { onDelete: "cascade" }),
   html: text("html").notNull(),
-  status: mysqlEnum("status", ["draft", "approved"]).notNull(),
+  status: mysqlEnum("status", ["draft", "approved", "stale"]).notNull(),
   generatedAt: timestamp("generated_at").notNull(),
   approvedByUserId: varchar("approved_by_user_id", { length: 64 }).references(() => users.id, {
     onDelete: "set null"

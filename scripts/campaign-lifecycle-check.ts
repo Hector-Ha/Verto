@@ -14,8 +14,10 @@ import {
   removeCampaignTeamMember
 } from "../src/server/campaigns/service";
 import {
+  answerSetupQuestion,
   approveCampaignKnowledgeReport,
-  generateCampaignKnowledgeReport
+  generateCampaignKnowledgeReport,
+  getCampaignSetupView
 } from "../src/server/campaign-setup/service";
 import { closeDatabase, db } from "../src/server/db/client";
 import { runMigrations } from "../src/server/db/migrate";
@@ -72,6 +74,28 @@ async function insertReadyReviewIdea(campaignId: string) {
     isCurrent: true,
     reason: "Issue #4 review-complete blocker fixture.",
     workflowState: "ready_for_rd_review"
+  });
+}
+
+async function insertNonReadyReviewIdea(campaignId: string) {
+  await db.insert(ideas).values({
+    campaignId,
+    createdAt: new Date("2026-01-15T10:30:00Z"),
+    id: "idea-not-ready-review-outcome",
+    originalText: "An idea that has not reached R&D review readiness.",
+    sourceType: "seed_demo",
+    submittedAt: new Date("2026-01-15T10:30:00Z"),
+    submitterUserId: "employee",
+    title: "Not ready review idea"
+  });
+  await db.insert(ideaStateHistory).values({
+    changedAt: new Date("2026-01-15T10:30:00Z"),
+    changedByUserId: "employee",
+    ideaId: "idea-not-ready-review-outcome",
+    id: "idea-not-ready-review-outcome-state",
+    isCurrent: true,
+    reason: "Review outcome guard fixture.",
+    workflowState: "general_idea"
   });
 }
 
@@ -157,6 +181,23 @@ async function main() {
     );
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "setup_in_progress" });
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "setup_review" });
+    let setupView = await getCampaignSetupView("owner-created-campaign");
+    assert(setupView.questionQueue.length >= 2);
+    await assert.rejects(
+      async () => {
+        const emptyReport = await generateCampaignKnowledgeReport(owner, "owner-created-campaign");
+        await approveCampaignKnowledgeReport(owner, emptyReport.id);
+      },
+      /hard blockers|approved setup baseline/
+    );
+    for (const question of setupView.questionQueue.filter((candidate) => candidate.priority === "hard_blocker")) {
+      await answerSetupQuestion(owner, question.id, {
+        answerText: question.recommendedAnswer ?? "Owner-approved setup baseline.",
+        decisionTitle: question.setupArea.replaceAll("_", " ")
+      });
+    }
+    setupView = await getCampaignSetupView("owner-created-campaign");
+    assert(setupView.structuredSetup.length > 0);
     const lifecycleReport = await generateCampaignKnowledgeReport(owner, "owner-created-campaign");
     await approveCampaignKnowledgeReport(owner, lifecycleReport.id);
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "ready_to_open" });
@@ -175,6 +216,15 @@ async function main() {
     await changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "review_in_progress" });
 
     console.log("campaign-check: block Review Complete until ready ideas have outcomes");
+    await insertNonReadyReviewIdea("owner-created-campaign");
+    await assert.rejects(
+      () =>
+        recordIdeaReviewOutcome(owner, "idea-not-ready-review-outcome", {
+          nextState: "inactive_idea",
+          reason: "Should fail before R&D review readiness."
+        }),
+      /ready for R&D review/
+    );
     await insertReadyReviewIdea("owner-created-campaign");
     await assert.rejects(
       () => changeCampaignLifecycle(owner, "owner-created-campaign", { nextStatus: "review_complete" }),

@@ -9,6 +9,7 @@ import { db } from "../db/client";
 import {
   auditEvents,
   campaignMemberships,
+  campaignSetupQuestions,
   campaigns,
   ideaStateHistory,
   ideas,
@@ -160,6 +161,42 @@ async function addDefaultManagerMemberships(
   }
 }
 
+async function addDefaultSetupQuestions(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  campaignId: string,
+  publicTitle: string
+) {
+  const now = new Date();
+  const questions = [
+    {
+      id: newId("setup-question"),
+      priority: "hard_blocker" as const,
+      questionText: `Which employee idea types should ${publicTitle} include and exclude?`,
+      rationale: "AI needs campaign scope before it can judge whether an idea belongs in this campaign.",
+      recommendedAnswer: "Define included idea types, excluded adjacent topics, and any known boundary cases.",
+      setupArea: "topic" as const
+    },
+    {
+      id: newId("setup-question"),
+      priority: "hard_blocker" as const,
+      questionText: `What minimum information must ${publicTitle} ideas include before R&D review?`,
+      rationale: "Minimum review packet gaps should trigger clarification instead of wasting R&D review time.",
+      recommendedAnswer: "Require the employee problem, expected benefit, feasibility signal, and relevant context.",
+      setupArea: "review_packet" as const
+    }
+  ];
+
+  await tx.insert(campaignSetupQuestions).values(
+    questions.map((question) => ({
+      campaignId,
+      createdAt: now,
+      ...question,
+      status: "open" as const,
+      updatedAt: now
+    }))
+  );
+}
+
 async function writeCampaignAudit(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   session: DemoSession,
@@ -212,6 +249,7 @@ export async function createSpecificCampaign(session: DemoSession, input: Create
 
     await addDefaultManagerMemberships(tx, campaignId);
     await addMembership(tx, campaignId, input.ownerUserId, "owner");
+    await addDefaultSetupQuestions(tx, campaignId, input.publicTitle);
     await writeCampaignAudit(tx, session, "campaign.created", campaignId, "Specific campaign created.", {
       ownerUserId: input.ownerUserId
     });
@@ -332,17 +370,39 @@ export async function changeCampaignLifecycle(
   }
 
   await db.transaction(async (tx) => {
+    const [currentCampaign] = await tx
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId))
+      .limit(1)
+      .for("update");
+    if (!currentCampaign || currentCampaign.type !== "specific") {
+      throw new Error("Specific campaign not found.");
+    }
+    if (!allowedTransitions[currentCampaign.lifecycleStatus].includes(input.nextStatus)) {
+      throw new Error(`Invalid lifecycle transition from ${currentCampaign.lifecycleStatus} to ${input.nextStatus}.`);
+    }
+    if (["ready_to_open", "intake_scheduled", "intake_open"].includes(input.nextStatus)) {
+      await assertCampaignSetupReadyForIntake(campaignId);
+    }
+    if (input.nextStatus === "review_complete") {
+      const readyReviewIdeas = await countReadyReviewIdeas(campaignId);
+      if (readyReviewIdeas > 0) {
+        throw new Error("Review Complete is blocked while Ready for R&D Review ideas lack outcomes.");
+      }
+    }
+
     await tx
       .update(campaigns)
       .set({
-        intakeEndsAt: input.intakeEndsAt ?? campaign.intakeEndsAt,
-        intakeStartsAt: input.intakeStartsAt ?? campaign.intakeStartsAt,
+        intakeEndsAt: input.intakeEndsAt ?? currentCampaign.intakeEndsAt,
+        intakeStartsAt: input.intakeStartsAt ?? currentCampaign.intakeStartsAt,
         lifecycleStatus: input.nextStatus,
         updatedAt: new Date()
       })
       .where(eq(campaigns.id, campaignId));
     await writeCampaignAudit(tx, session, "campaign.lifecycle.changed", campaignId, "Campaign lifecycle gate changed.", {
-      from: campaign.lifecycleStatus,
+      from: currentCampaign.lifecycleStatus,
       to: input.nextStatus
     });
   });
@@ -352,10 +412,15 @@ export async function recordIdeaReviewOutcome(session: DemoSession, ideaId: stri
   const [row] = await db
     .select({
       campaignId: ideas.campaignId,
+      currentWorkflowState: ideaStateHistory.workflowState,
       lifecycleStatus: campaigns.lifecycleStatus
     })
     .from(ideas)
     .innerJoin(campaigns, eq(campaigns.id, ideas.campaignId))
+    .leftJoin(
+      ideaStateHistory,
+      and(eq(ideaStateHistory.ideaId, ideas.id), eq(ideaStateHistory.isCurrent, true))
+    )
     .where(eq(ideas.id, ideaId))
     .limit(1);
 
@@ -366,11 +431,17 @@ export async function recordIdeaReviewOutcome(session: DemoSession, ideaId: stri
   if (row.lifecycleStatus === "ended") {
     throw new Error("Cannot record review decisions for an ended campaign.");
   }
+  if (row.currentWorkflowState !== "ready_for_rd_review") {
+    throw new Error("Review outcome can only be recorded for ideas ready for R&D review.");
+  }
 
   await assertCanManageCampaign(session, row.campaignId, "record review decisions");
 
   await db.transaction(async (tx) => {
-    await tx.update(ideaStateHistory).set({ isCurrent: false }).where(eq(ideaStateHistory.ideaId, ideaId));
+    await tx
+      .update(ideaStateHistory)
+      .set({ isCurrent: false })
+      .where(and(eq(ideaStateHistory.ideaId, ideaId), eq(ideaStateHistory.isCurrent, true)));
     await tx.insert(ideaStateHistory).values({
       changedAt: new Date(),
       changedByUserId: session.user.id,

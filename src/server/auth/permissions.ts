@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../db/client";
-import { campaignMemberships, campaigns } from "../db/schema";
+import { campaignKnowledgeReports, campaignMemberships, campaigns } from "../db/schema";
 import type { DemoSession } from "./session";
 
 type CampaignAuthority = {
@@ -39,6 +39,16 @@ async function getCampaignAuthority(session: DemoSession, campaignId: string): P
 
 function hasMembership(authority: CampaignAuthority, role: "manager" | "owner" | "member") {
   return authority.membershipRoles.includes(role);
+}
+
+async function hasApprovedCampaignKnowledgeReport(campaignId: string) {
+  const [report] = await db
+    .select({ id: campaignKnowledgeReports.id })
+    .from(campaignKnowledgeReports)
+    .where(and(eq(campaignKnowledgeReports.campaignId, campaignId), eq(campaignKnowledgeReports.status, "approved")))
+    .limit(1);
+
+  return Boolean(report);
 }
 
 export async function canManageGeneralCampaignOwnerMembership(session: DemoSession) {
@@ -86,7 +96,11 @@ export async function canSubmitIdea(session: DemoSession, campaignId: string) {
     return false;
   }
 
-  return authority.type === "general" || authority.lifecycleStatus === "intake_open";
+  if (authority.type === "general") {
+    return true;
+  }
+
+  return authority.lifecycleStatus === "intake_open" && (await hasApprovedCampaignKnowledgeReport(campaignId));
 }
 
 export async function getDemoPermissionSummary(session: DemoSession) {
