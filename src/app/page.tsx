@@ -11,6 +11,10 @@ import {
   submitIdeaAction,
   submitIdeaDraftAction
 } from "@/server/employee-intake/actions";
+import {
+  analyzeIdeaFamilyAction,
+  regenerateIdeaFamilySummaryAction
+} from "@/server/idea-families/actions";
 import { requestEmployeeClarificationAction } from "@/server/clarifications/actions";
 import {
   answerSetupQuestionAction,
@@ -32,6 +36,10 @@ import {
 } from "@/server/clarifications/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
+import {
+  getAccessibleIdeaFamilyCandidates,
+  getAccessibleIdeaFamilyReviewView
+} from "@/server/idea-families/service";
 import {
   routeIdeaBeforeRdReviewAction,
   runCampaignRoutingRecheckAction,
@@ -68,6 +76,8 @@ export default async function Home({ searchParams }: HomeProps) {
   let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
   let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
   let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
+  let ideaFamilyCandidates: Awaited<ReturnType<typeof getAccessibleIdeaFamilyCandidates>> = [];
+  let ideaFamilyReviewView: Awaited<ReturnType<typeof getAccessibleIdeaFamilyReviewView>> = [];
   let routingCandidateIdeas: Awaited<ReturnType<typeof getAccessibleRoutingCandidateIdeas>> = [];
   let routingReviewView: Awaited<ReturnType<typeof getAccessibleRoutingReviewView>> = [];
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
@@ -90,6 +100,8 @@ export default async function Home({ searchParams }: HomeProps) {
         nextReceipt,
         nextClarificationReviewView,
         nextClarificationTriggerIdeas,
+        nextIdeaFamilyCandidates,
+        nextIdeaFamilyReviewView,
         nextRoutingCandidateIdeas,
         nextRoutingReviewView
       ] = await Promise.all([
@@ -102,6 +114,8 @@ export default async function Home({ searchParams }: HomeProps) {
           : Promise.resolve(null),
         getAccessibleClarificationReviewView(session),
         getAccessibleClarificationTriggerIdeas(session),
+        getAccessibleIdeaFamilyCandidates(session),
+        session.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(session),
         getAccessibleRoutingCandidateIdeas(session),
         session.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(session)
       ]);
@@ -112,6 +126,8 @@ export default async function Home({ searchParams }: HomeProps) {
       submissionReceipt = nextReceipt;
       clarificationReviewView = nextClarificationReviewView;
       clarificationTriggerIdeas = nextClarificationTriggerIdeas;
+      ideaFamilyCandidates = nextIdeaFamilyCandidates;
+      ideaFamilyReviewView = nextIdeaFamilyReviewView;
       routingCandidateIdeas = nextRoutingCandidateIdeas;
       routingReviewView = nextRoutingReviewView;
       setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
@@ -461,6 +477,66 @@ export default async function Home({ searchParams }: HomeProps) {
                   ))}
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Idea Families</h2>
+                <span>{ideaFamilyReviewView.length} review packets</span>
+              </div>
+
+              {ideaFamilyCandidates.length > 0 ? (
+                <div className="campaign-control-list">
+                  {ideaFamilyCandidates.map((idea) => (
+                    <article className="campaign-control" key={`idea-family-candidate:${idea.ideaId}`}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{idea.title}</h3>
+                          <span>{idea.campaignTitle}</span>
+                        </div>
+                        <code>ungrouped</code>
+                      </div>
+                      <form action={analyzeIdeaFamilyAction}>
+                        <input name="ideaId" type="hidden" value={idea.ideaId} />
+                        <button disabled={!session} type="submit">
+                          Analyze family
+                        </button>
+                      </form>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="table-list">
+                {ideaFamilyReviewView.map((family) => (
+                  <div className="table-row" key={family.familyId}>
+                    <div>
+                      <strong>{family.currentSummary?.summaryText ?? "Summary not generated"}</strong>
+                      <span>{family.campaignTitle}</span>
+                      {family.currentSummary ? (
+                        <span>
+                          v{family.currentSummary.version}: {family.currentSummary.aiReason}
+                        </span>
+                      ) : null}
+                      {family.members.map((member) => (
+                        <span key={`${family.familyId}:${member.ideaId}`}>
+                          {member.title} · {formatStatus(member.relationshipType)} · {member.displayName}
+                          {member.variantDifference ? ` · ${member.variantDifference}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <form action={regenerateIdeaFamilySummaryAction}>
+                      <input name="familyId" type="hidden" value={family.familyId} />
+                      <button disabled={!session} type="submit">
+                        Regenerate
+                      </button>
+                    </form>
+                  </div>
+                ))}
+                {ideaFamilyReviewView.length === 0 ? <p className="muted-copy">No idea families yet.</p> : null}
+              </div>
             </section>
           ) : null}
 

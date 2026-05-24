@@ -321,6 +321,70 @@ export const ideaRoutingDecisions = mysqlTable("idea_routing_decisions", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+export const ideaFamilies = mysqlTable("idea_families", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  primaryIdeaId: varchar("primary_idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const ideaFamilyRelationshipType = mysqlEnum("relationship_type", [
+  "primary",
+  "exact_duplicate",
+  "related_submission",
+  "variant"
+]);
+
+export const ideaFamilyMembers = mysqlTable(
+  "idea_family_members",
+  {
+    familyId: varchar("family_id", { length: 64 })
+      .notNull()
+      .references(() => ideaFamilies.id, { onDelete: "cascade" }),
+    ideaId: varchar("idea_id", { length: 64 })
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
+    relationshipType: ideaFamilyRelationshipType.notNull(),
+    variantDifference: text("variant_difference"),
+    createdAt: timestamp("created_at").notNull().defaultNow()
+  },
+  (table) => [primaryKey({ columns: [table.familyId, table.ideaId] })]
+);
+
+export type IdeaSummarySourceTrace = Array<{
+  clarificationRequestId: string | null;
+  excerpt: string;
+  ideaId: string;
+  sourceType: "original_submission" | "clarification_answer";
+}>;
+
+export const ideaReviewSummaries = mysqlTable("idea_review_summaries", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  familyId: varchar("family_id", { length: 64 })
+    .notNull()
+    .references(() => ideaFamilies.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  aiDecisionLogId: varchar("ai_decision_log_id", { length: 64 }).references(() => aiDecisionLogs.id, {
+    onDelete: "set null"
+  }),
+  requestedByUserId: varchar("requested_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  version: int("version").notNull(),
+  summaryText: text("summary_text").notNull(),
+  sourceTrace: json("source_trace").$type<IdeaSummarySourceTrace>().notNull(),
+  aiReason: text("ai_reason").notNull(),
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 export const auditActorType = mysqlEnum("actor_type", ["user", "system", "ai"]);
 
 export const auditEvents = mysqlTable("audit_events", {
