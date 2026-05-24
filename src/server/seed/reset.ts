@@ -9,6 +9,7 @@ const RESET_TABLES = [
   "campaign_setup_answers",
   "campaign_setup_questions",
   "clarification_requests",
+  "idea_routing_decisions",
   "ai_decision_logs",
   "audit_events",
   "idea_state_history",

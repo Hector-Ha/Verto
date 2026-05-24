@@ -32,6 +32,15 @@ import {
 } from "@/server/clarifications/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
+import {
+  routeIdeaBeforeRdReviewAction,
+  runCampaignRoutingRecheckAction,
+  runGeneralCampaignRoutingRecheckAction
+} from "@/server/pre-rd-routing/actions";
+import {
+  getAccessibleRoutingCandidateIdeas,
+  getAccessibleRoutingReviewView
+} from "@/server/pre-rd-routing/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -59,6 +68,8 @@ export default async function Home({ searchParams }: HomeProps) {
   let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
   let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
   let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
+  let routingCandidateIdeas: Awaited<ReturnType<typeof getAccessibleRoutingCandidateIdeas>> = [];
+  let routingReviewView: Awaited<ReturnType<typeof getAccessibleRoutingReviewView>> = [];
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
@@ -78,7 +89,9 @@ export default async function Home({ searchParams }: HomeProps) {
         nextEmployeeIntakeView,
         nextReceipt,
         nextClarificationReviewView,
-        nextClarificationTriggerIdeas
+        nextClarificationTriggerIdeas,
+        nextRoutingCandidateIdeas,
+        nextRoutingReviewView
       ] = await Promise.all([
         getDemoPermissionSummary(session),
         getCampaignOperationsView(session),
@@ -88,7 +101,9 @@ export default async function Home({ searchParams }: HomeProps) {
           ? getEmployeeSubmissionReceipt(session, submittedIdeaId)
           : Promise.resolve(null),
         getAccessibleClarificationReviewView(session),
-        getAccessibleClarificationTriggerIdeas(session)
+        getAccessibleClarificationTriggerIdeas(session),
+        getAccessibleRoutingCandidateIdeas(session),
+        session.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(session)
       ]);
 
       permissionSummary = nextPermissionSummary;
@@ -97,6 +112,8 @@ export default async function Home({ searchParams }: HomeProps) {
       submissionReceipt = nextReceipt;
       clarificationReviewView = nextClarificationReviewView;
       clarificationTriggerIdeas = nextClarificationTriggerIdeas;
+      routingCandidateIdeas = nextRoutingCandidateIdeas;
+      routingReviewView = nextRoutingReviewView;
       setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
     }
   } catch (error) {
@@ -444,6 +461,78 @@ export default async function Home({ searchParams }: HomeProps) {
                   ))}
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Pre-R&amp;D Routing</h2>
+                <span>{routingReviewView.length} decisions</span>
+              </div>
+              <div className="campaign-control-list">
+                <article className="campaign-control">
+                  <div className="campaign-control-heading">
+                    <div>
+                      <h3>Routing Rechecks</h3>
+                      <span>Unreviewed ideas only</span>
+                    </div>
+                    <code>internal</code>
+                  </div>
+                  <div className="control-row">
+                    <form action={runGeneralCampaignRoutingRecheckAction}>
+                      <button disabled={!session || !["rd_manager", "general_campaign_owner"].includes(session.role.id)} type="submit">
+                        Recheck General
+                      </button>
+                    </form>
+                    {campaignOperations?.specificCampaigns.map((campaign) => (
+                      <form action={runCampaignRoutingRecheckAction} key={`routing-recheck:${campaign.id}`}>
+                        <input name="campaignId" type="hidden" value={campaign.id} />
+                        <button disabled={!session} type="submit">
+                          Recheck {campaign.publicTitle}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </article>
+
+                {routingCandidateIdeas.map((idea) => (
+                  <article className="campaign-control" key={`routing-candidate:${idea.ideaId}`}>
+                    <div className="campaign-control-heading">
+                      <div>
+                        <h3>{idea.title}</h3>
+                        <span>{idea.campaignTitle}</span>
+                      </div>
+                      <code>{formatStatus(idea.currentWorkflowState)}</code>
+                    </div>
+                    <form action={routeIdeaBeforeRdReviewAction}>
+                      <input name="ideaId" type="hidden" value={idea.ideaId} />
+                      <button disabled={!session || (idea.campaignType === "general" && !["rd_manager", "general_campaign_owner"].includes(session.role.id))} type="submit">
+                        Route with AI
+                      </button>
+                    </form>
+                  </article>
+                ))}
+              </div>
+
+              <div className="table-list">
+                {routingReviewView.map((decision) => (
+                  <div className="table-row" key={decision.routingDecisionId}>
+                    <div>
+                      <strong>{decision.ideaTitle}</strong>
+                      <span>
+                        {formatStatus(decision.oldWorkflowState)} to {formatStatus(decision.newWorkflowState)}
+                      </span>
+                      <span>{decision.newReason}</span>
+                      <span>Readiness gate: {decision.readinessBasis}</span>
+                      {decision.outOfScopeMatched ? <span>Out of scope: {decision.outOfScopeReason}</span> : null}
+                      <span>Context {decision.contextVersion}</span>
+                    </div>
+                    <code>{formatStatus(decision.trigger)}</code>
+                  </div>
+                ))}
+                {routingReviewView.length === 0 ? <p className="muted-copy">No routing decisions yet.</p> : null}
+              </div>
             </section>
           ) : null}
 

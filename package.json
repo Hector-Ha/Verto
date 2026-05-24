@@ -14,6 +14,7 @@
     "llm:check": "bun run scripts/llm-adapter-check.ts",
     "employee:intake-check": "bun run scripts/employee-intake-check.ts",
     "clarification:check": "bun run scripts/clarification-check.ts",
+    "pre-rd:routing-check": "bun run scripts/pre-rd-routing-check.ts",
     "clarification:reminders": "bun run scripts/clarification-reminder-job.ts",
     "clarification:expire": "bun run scripts/clarification-expiry-job.ts",
     "campaign:setup-check": "bun run scripts/campaign-setup-check.ts",

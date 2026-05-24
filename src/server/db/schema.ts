@@ -217,7 +217,7 @@ export const ideas = mysqlTable("ideas", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const ideaWorkflowState = mysqlEnum("workflow_state", [
+const ideaWorkflowStates = [
   "submitted",
   "general_idea",
   "needs_employee_clarification",
@@ -225,7 +225,9 @@ export const ideaWorkflowState = mysqlEnum("workflow_state", [
   "future_opportunity",
   "inactive_idea",
   "potential_idea"
-]);
+] as const;
+
+export const ideaWorkflowState = mysqlEnum("workflow_state", ideaWorkflowStates);
 
 export const ideaStateHistory = mysqlTable("idea_state_history", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -281,6 +283,41 @@ export const aiDecisionLogs = mysqlTable("ai_decision_logs", {
   outputSummary: text("output_summary"),
   rawResponse: json("raw_response").$type<Record<string, unknown> | null>(),
   decisionResult: json("decision_result").$type<Record<string, unknown> | null>(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const routingTrigger = mysqlEnum("trigger", [
+  "initial_route",
+  "campaign_context_recheck",
+  "general_context_recheck"
+]);
+export const reviewPacketStatus = mysqlEnum("review_packet_status", [
+  "ready",
+  "missing_critical_info",
+  "not_applicable"
+]);
+
+export const ideaRoutingDecisions = mysqlTable("idea_routing_decisions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  aiDecisionLogId: varchar("ai_decision_log_id", { length: 64 }).references(() => aiDecisionLogs.id, {
+    onDelete: "set null"
+  }),
+  trigger: routingTrigger.notNull(),
+  oldWorkflowState: mysqlEnum("old_workflow_state", ideaWorkflowStates).notNull(),
+  newWorkflowState: mysqlEnum("new_workflow_state", ideaWorkflowStates).notNull(),
+  oldReason: text("old_reason"),
+  newReason: text("new_reason").notNull(),
+  reviewPacketStatus: reviewPacketStatus.notNull(),
+  readinessBasis: text("readiness_basis").notNull(),
+  outOfScopeMatched: boolean("out_of_scope_matched").notNull().default(false),
+  outOfScopeReason: text("out_of_scope_reason"),
+  contextVersion: varchar("context_version", { length: 255 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
