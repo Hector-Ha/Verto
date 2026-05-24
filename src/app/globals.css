@@ -36,6 +36,25 @@ select {
   font: inherit;
 }
 
+input,
+select,
+textarea {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--text);
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  border-radius: 0;
+}
+
 .shell {
   display: grid;
   gap: 20px;
@@ -325,6 +344,128 @@ code {
   color: var(--accent);
 }
 
+.campaign-controls {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(280px, 0.45fr) minmax(0, 1fr);
+  padding: 16px;
+}
+
+.control-form,
+.campaign-control,
+.inline-form,
+.lifecycle-form {
+  border: 1px solid var(--line);
+}
+
+.control-form {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+h3 {
+  font-size: 0.96rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+}
+
+label span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.control-form button,
+.inline-form button,
+.lifecycle-form button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 9px 12px;
+}
+
+.control-form button:disabled,
+.inline-form button:disabled,
+.lifecycle-form button:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  cursor: default;
+}
+
+.campaign-control-list {
+  display: grid;
+  gap: 14px;
+}
+
+.campaign-control {
+  display: grid;
+}
+
+.campaign-control-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 13px;
+}
+
+.campaign-control-heading div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.campaign-control-heading span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.campaign-member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 13px 0;
+}
+
+.campaign-member-list span {
+  background: #edf2f7;
+  color: #334155;
+  font-size: 0.78rem;
+  padding: 5px 7px;
+}
+
+.control-row,
+.lifecycle-form {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+}
+
+.control-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inline-form {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.lifecycle-form {
+  border-width: 1px 0 0;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+}
+
 @media (max-width: 780px) {
   .shell {
     padding: 16px;
@@ -345,6 +486,12 @@ code {
 
   .permission-grid,
   .role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-controls,
+  .control-row,
+  .lifecycle-form {
     grid-template-columns: 1fr;
   }
 

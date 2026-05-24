@@ -1,8 +1,9 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 import { DEMO_PERSONAS, type DemoPersonaId, type RoleId } from "../auth/personas";
+import { getNextCampaignLifecycleStatuses } from "../campaigns/service";
 import { db } from "./client";
-import { campaigns, ideas, roles, userRoles, users } from "./schema";
+import { campaignMemberships, campaigns, ideas, roles, userRoles, users } from "./schema";
 
 type CountRow = {
   count: number | string | bigint;
@@ -107,4 +108,66 @@ export async function getDemoRoleSwitchOptionById(personaId: string) {
 
   const options = await getDemoRoleSwitchOptions();
   return options.find((option) => option.personaId === (personaId as DemoPersonaId)) ?? null;
+}
+
+export async function getCampaignOperationsView() {
+  const campaignRows = await db
+    .select({
+      id: campaigns.id,
+      intakeEndsAt: campaigns.intakeEndsAt,
+      intakeStartsAt: campaigns.intakeStartsAt,
+      lifecycleStatus: campaigns.lifecycleStatus,
+      name: campaigns.name,
+      publicTitle: campaigns.publicTitle
+    })
+    .from(campaigns)
+    .where(eq(campaigns.type, "specific"))
+    .orderBy(campaigns.id);
+
+  const membershipRows = await db
+    .select({
+      campaignId: campaignMemberships.campaignId,
+      displayName: users.displayName,
+      membershipRole: campaignMemberships.membershipRole,
+      userId: users.id
+    })
+    .from(campaignMemberships)
+    .innerJoin(users, eq(users.id, campaignMemberships.userId));
+
+  const ownerRows = await db
+    .select({
+      displayName: users.displayName,
+      roleId: roles.id,
+      userId: users.id
+    })
+    .from(userRoles)
+    .innerJoin(users, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(inArray(userRoles.roleId, ["rd_manager", "specific_campaign_owner"]));
+
+  const teamMemberRows = await db
+    .select({
+      displayName: users.displayName,
+      userId: users.id
+    })
+    .from(userRoles)
+    .innerJoin(users, eq(users.id, userRoles.userId))
+    .where(eq(userRoles.roleId, "rd_team_member"));
+
+  const membershipsByCampaign = new Map<string, typeof membershipRows>();
+  for (const membership of membershipRows) {
+    const memberships = membershipsByCampaign.get(membership.campaignId) ?? [];
+    memberships.push(membership);
+    membershipsByCampaign.set(membership.campaignId, memberships);
+  }
+
+  return {
+    ownerOptions: ownerRows,
+    specificCampaigns: campaignRows.map((campaign) => ({
+      ...campaign,
+      memberships: membershipsByCampaign.get(campaign.id) ?? [],
+      nextStatuses: getNextCampaignLifecycleStatuses(campaign.lifecycleStatus)
+    })),
+    teamMemberOptions: teamMemberRows
+  };
 }

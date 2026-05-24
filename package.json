@@ -10,6 +10,7 @@
     "db:seed": "bun run src/server/seed/seed.ts",
     "db:reset": "bun run src/server/seed/reset.ts",
     "auth:check": "bun run scripts/auth-check.ts",
+    "campaign:lifecycle-check": "bun run scripts/campaign-lifecycle-check.ts",
     "smoke": "bun run scripts/smoke.ts"
   },
   "dependencies": {

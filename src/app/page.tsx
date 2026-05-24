@@ -1,21 +1,41 @@
+import {
+  addCampaignTeamMemberAction,
+  changeCampaignLifecycleAction,
+  changeCampaignOwnerAction,
+  createCampaignAction,
+  removeCampaignTeamMemberAction
+} from "@/server/campaigns/actions";
 import { switchRoleAction } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/cookies";
 import { getDemoPermissionSummary } from "@/server/auth/permissions";
-import { getDemoSnapshot } from "@/server/db/queries";
-import { getDemoRoleSwitchOptions } from "@/server/db/queries";
+import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function formatStatus(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function formatDateTimeLocal(date: Date | null) {
+  return date ? date.toISOString().slice(0, 16) : "";
+}
+
 export default async function Home() {
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
+  let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
   let databaseError: string | null = null;
 
   try {
-    [snapshot, roleOptions, session] = await Promise.all([getDemoSnapshot(), getDemoRoleSwitchOptions(), getCurrentSession()]);
+    [snapshot, roleOptions, session, campaignOperations] = await Promise.all([
+      getDemoSnapshot(),
+      getDemoRoleSwitchOptions(),
+      getCurrentSession(),
+      getCampaignOperationsView()
+    ]);
     permissionSummary = session ? await getDemoPermissionSummary(session) : null;
   } catch (error) {
     databaseError = error instanceof Error ? error.message : "Unknown database error";
@@ -187,6 +207,147 @@ export default async function Home() {
               ))}
             </div>
           </section>
+
+          {campaignOperations ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Campaign Controls</h2>
+                <span>{session?.role.name ?? "no session"}</span>
+              </div>
+              <div className="campaign-controls">
+                <form action={createCampaignAction} className="control-form">
+                  <h3>Create specific campaign</h3>
+                  <label>
+                    <span>Name</span>
+                    <input defaultValue="New Materials Campaign" disabled={!session} name="name" required />
+                  </label>
+                  <label>
+                    <span>Public title</span>
+                    <input defaultValue="New Materials Ideas" disabled={!session} name="publicTitle" required />
+                  </label>
+                  <label>
+                    <span>Public prompt</span>
+                    <textarea
+                      defaultValue="Share practical ideas for reusable materials in production workflows."
+                      disabled={!session}
+                      name="publicPrompt"
+                      required
+                      rows={3}
+                    />
+                  </label>
+                  <label>
+                    <span>Owner</span>
+                    <select defaultValue={session?.role.id === "specific_campaign_owner" ? session.user.id : "rd-manager"} disabled={!session} name="ownerUserId" required>
+                      {campaignOperations.ownerOptions.map((option) => (
+                        <option key={`${option.userId}:${option.roleId}`} value={option.userId}>
+                          {option.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button disabled={!session} type="submit">
+                    Create
+                  </button>
+                </form>
+
+                <div className="campaign-control-list">
+                  {campaignOperations.specificCampaigns.map((campaign) => {
+                    const teamMembers = campaign.memberships.filter((membership) => membership.membershipRole === "member");
+
+                    return (
+                    <article className="campaign-control" key={campaign.id}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{campaign.publicTitle}</h3>
+                          <span>{campaign.name}</span>
+                        </div>
+                        <code>{campaign.lifecycleStatus}</code>
+                      </div>
+
+                      <div className="campaign-member-list">
+                        {campaign.memberships.map((membership) => (
+                          <span key={`${membership.userId}:${membership.membershipRole}`}>
+                            {membership.displayName} · {membership.membershipRole}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="control-row">
+                        <form action={changeCampaignOwnerAction} className="inline-form">
+                          <input name="campaignId" type="hidden" value={campaign.id} />
+                          <select disabled={!session} name="ownerUserId" required>
+                            {campaignOperations.ownerOptions.map((option) => (
+                              <option key={`${campaign.id}:owner:${option.userId}:${option.roleId}`} value={option.userId}>
+                                {option.displayName}
+                              </option>
+                            ))}
+                          </select>
+                          <button disabled={!session} type="submit">
+                            Set owner
+                          </button>
+                        </form>
+
+                        <form action={addCampaignTeamMemberAction} className="inline-form">
+                          <input name="campaignId" type="hidden" value={campaign.id} />
+                          <select disabled={!session} name="userId" required>
+                            {campaignOperations.teamMemberOptions.map((option) => (
+                              <option key={`${campaign.id}:member:${option.userId}`} value={option.userId}>
+                                {option.displayName}
+                              </option>
+                            ))}
+                          </select>
+                          <button disabled={!session} type="submit">
+                            Add member
+                          </button>
+                        </form>
+
+                        <form action={removeCampaignTeamMemberAction} className="inline-form">
+                          <input name="campaignId" type="hidden" value={campaign.id} />
+                          <select disabled={!session || teamMembers.length === 0} name="userId" required>
+                            {teamMembers
+                              .map((membership) => (
+                                <option key={`${campaign.id}:remove:${membership.userId}`} value={membership.userId}>
+                                  {membership.displayName}
+                                </option>
+                              ))}
+                          </select>
+                          <button disabled={!session || teamMembers.length === 0} type="submit">
+                            Remove member
+                          </button>
+                        </form>
+                      </div>
+
+                      <form action={changeCampaignLifecycleAction} className="lifecycle-form">
+                        <input name="campaignId" type="hidden" value={campaign.id} />
+                        <label>
+                          <span>Next gate</span>
+                          <select disabled={!session || campaign.nextStatuses.length === 0} name="nextStatus" required>
+                            {campaign.nextStatuses.map((status) => (
+                              <option key={`${campaign.id}:${status}`} value={status}>
+                                {formatStatus(status)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          <span>Starts</span>
+                          <input defaultValue={formatDateTimeLocal(campaign.intakeStartsAt)} disabled={!session} name="intakeStartsAt" type="datetime-local" />
+                        </label>
+                        <label>
+                          <span>Ends</span>
+                          <input defaultValue={formatDateTimeLocal(campaign.intakeEndsAt)} disabled={!session} name="intakeEndsAt" type="datetime-local" />
+                        </label>
+                        <button disabled={!session || campaign.nextStatuses.length === 0} type="submit">
+                          Move gate
+                        </button>
+                      </form>
+                    </article>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          ) : null}
         </>
       ) : (
         <section className="panel panel--error">
