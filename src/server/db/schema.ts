@@ -174,6 +174,20 @@ export const campaignKnowledgeReports = mysqlTable("campaign_knowledge_reports",
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
 });
 
+export const generalCampaignReviewPackets = mysqlTable("general_campaign_review_packets", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  packetText: text("packet_text").notNull(),
+  contextVersion: varchar("context_version", { length: 255 }).notNull(),
+  createdByUserId: varchar("created_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 export const ideaSourceType = mysqlEnum("source_type", ["employee_submission", "seed_demo"]);
 
 export const ideaDrafts = mysqlTable("idea_drafts", {

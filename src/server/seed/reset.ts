@@ -4,6 +4,7 @@ import { createMysqlConnection } from "../db/config";
 import { seedDemoData } from "./seed";
 
 const RESET_TABLES = [
+  "general_campaign_review_packets",
   "campaign_knowledge_reports",
   "campaign_setup_decisions",
   "campaign_setup_answers",

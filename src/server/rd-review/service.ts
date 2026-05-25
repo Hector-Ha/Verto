@@ -2,7 +2,12 @@ import crypto from "node:crypto";
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import { canContributeToCampaign, canRecommendReviewOutcome, canRecordReviewOutcome } from "../auth/permissions";
+import {
+  canContributeToCampaign,
+  canManageGeneralCampaign,
+  canRecommendReviewOutcome,
+  canRecordReviewOutcome
+} from "../auth/permissions";
 import type { DemoSession } from "../auth/session";
 import { db } from "../db/client";
 import {
@@ -170,14 +175,18 @@ export async function assignIdeaRanking(
   input: AssignRankingInput
 ) {
   const row = await readReviewableIdea(ideaId);
-  if (!(await canContributeToCampaign(session, row.campaignId))) {
+  if (row.campaignType === "general") {
+    if (!(await canManageGeneralCampaign(session))) {
+      throw new Error("Only General Campaign owners can rank General Campaign ideas.");
+    }
+  } else if (!(await canContributeToCampaign(session, row.campaignId))) {
     throw new Error("Only R&D users with campaign access can assign rankings.");
   }
   if (input.rankReasons.length < 2 || input.rankReasons.length > 4) {
     throw new Error("Rank reasons must include 2 to 4 short reasons.");
   }
 
-  const familyId = input.familyId ?? (await readFamilyIdForIdea(ideaId));
+  const familyId = row.campaignType === "general" ? null : input.familyId ?? (await readFamilyIdForIdea(ideaId));
   const rankingId = newId("idea-ranking");
 
   await db

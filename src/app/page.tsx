@@ -12,6 +12,10 @@ import {
   submitIdeaDraftAction
 } from "@/server/employee-intake/actions";
 import {
+  reclassifyInactiveGeneralIdeaAction,
+  updateGeneralCampaignReviewPacketAction
+} from "@/server/general-campaign/actions";
+import {
   analyzeIdeaFamilyAction,
   regenerateIdeaFamilySummaryAction
 } from "@/server/idea-families/actions";
@@ -46,6 +50,7 @@ import {
 } from "@/server/clarifications/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
+import { getGeneralCampaignWorkspaceView } from "@/server/general-campaign/service";
 import {
   getAccessibleIdeaFamilyCandidates,
   getAccessibleIdeaFamilyReviewView
@@ -83,6 +88,7 @@ export default async function Home({ searchParams }: HomeProps) {
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
   let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
   let employeeIntakeView: Awaited<ReturnType<typeof getEmployeeIntakeView>> | null = null;
+  let generalCampaignWorkspace: Awaited<ReturnType<typeof getGeneralCampaignWorkspaceView>> | null = null;
   let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
   let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
   let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
@@ -122,7 +128,8 @@ export default async function Home({ searchParams }: HomeProps) {
         nextIdeaFamilyReviewView,
         nextRoutingCandidateIdeas,
         nextRoutingReviewView,
-        nextRdReviewBoard
+        nextRdReviewBoard,
+        nextGeneralCampaignWorkspace
       ] = await Promise.all([
         getDemoPermissionSummary(activeSession),
         getCampaignOperationsView(activeSession),
@@ -137,11 +144,13 @@ export default async function Home({ searchParams }: HomeProps) {
         activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(activeSession),
         getAccessibleRoutingCandidateIdeas(activeSession),
         activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(activeSession),
-        activeSession.role.id === "employee" ? Promise.resolve(null) : getAccessibleRdReviewBoard(activeSession)
+        activeSession.role.id === "employee" ? Promise.resolve(null) : getAccessibleRdReviewBoard(activeSession),
+        getGeneralCampaignWorkspaceView(activeSession).catch(() => null)
       ]);
 
       permissionSummary = nextPermissionSummary;
       campaignOperations = nextCampaignOperations;
+      generalCampaignWorkspace = nextGeneralCampaignWorkspace;
       employeeIntakeView = nextEmployeeIntakeView;
       submissionReceipt = nextReceipt;
       clarificationReviewView = nextClarificationReviewView;
@@ -332,6 +341,147 @@ export default async function Home({ searchParams }: HomeProps) {
               ))}
             </div>
           </section>
+
+          {generalCampaignWorkspace ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>General Campaign Workspace</h2>
+                <span>{generalCampaignWorkspace.readyReviewIdeas.length} ready</span>
+              </div>
+
+              <div className="campaign-controls">
+                <form action={updateGeneralCampaignReviewPacketAction} className="control-form">
+                  <h3>Minimum review packet</h3>
+                  <label>
+                    <span>Broad packet</span>
+                    <textarea
+                      defaultValue={generalCampaignWorkspace.currentPacket?.packetText ?? ""}
+                      disabled={!generalCampaignWorkspace.canManage}
+                      name="packetText"
+                      required
+                      rows={4}
+                    />
+                  </label>
+                  {generalCampaignWorkspace.currentPacket ? (
+                    <code>{generalCampaignWorkspace.currentPacket.contextVersion}</code>
+                  ) : null}
+                  <button disabled={!generalCampaignWorkspace.canManage} type="submit">Update packet</button>
+                </form>
+
+                <div className="table-list">
+                  <div className="table-row">
+                    <div>
+                      <strong>General Ideas</strong>
+                      <span>{generalCampaignWorkspace.counts.generalIdeas}</span>
+                    </div>
+                    <code>intake</code>
+                  </div>
+                  <div className="table-row">
+                    <div>
+                      <strong>Awaiting Clarification</strong>
+                      <span>{generalCampaignWorkspace.counts.awaitingClarification}</span>
+                    </div>
+                    <code>separate</code>
+                  </div>
+                  <div className="table-row">
+                    <div>
+                      <strong>Future Opportunities</strong>
+                      <span>{generalCampaignWorkspace.counts.futureOpportunities}</span>
+                    </div>
+                    <code>storage</code>
+                  </div>
+                  <div className="table-row">
+                    <div>
+                      <strong>Inactive Ideas</strong>
+                      <span>{generalCampaignWorkspace.counts.inactiveIdeas}</span>
+                    </div>
+                    <code>storage</code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="workspace-grid">
+                <div className="table-list">
+                  <div className="panel-heading">
+                    <h3>Ready for Review</h3>
+                    <span>{generalCampaignWorkspace.readyReviewIdeas.length}</span>
+                  </div>
+                  {generalCampaignWorkspace.readyReviewIdeas.map((idea) => (
+                    <div className="table-row" key={`general-ready:${idea.ideaId}`}>
+                      <div>
+                        <strong>{idea.title}</strong>
+                        <span>{idea.reason}</span>
+                        {idea.evidence ? <span>{idea.evidence}</span> : null}
+                      </div>
+                      <code>{idea.submitterDisplayName}</code>
+                    </div>
+                  ))}
+                  {generalCampaignWorkspace.readyReviewIdeas.length === 0 ? (
+                    <p className="muted-copy">No General Campaign ideas ready for review.</p>
+                  ) : null}
+                </div>
+
+                <div className="table-list">
+                  <div className="panel-heading">
+                    <h3>Future Opportunities</h3>
+                    <span>{generalCampaignWorkspace.futureOpportunities.length}</span>
+                  </div>
+                  {generalCampaignWorkspace.futureOpportunities.map((idea) => (
+                    <div className="table-row" key={`general-future:${idea.ideaId}`}>
+                      <div>
+                        <strong>{idea.title}</strong>
+                        <span>{idea.reason}</span>
+                        {idea.evidence ? <span>{idea.evidence}</span> : null}
+                      </div>
+                      <code>{idea.submitterDisplayName}</code>
+                    </div>
+                  ))}
+                  {generalCampaignWorkspace.futureOpportunities.length === 0 ? (
+                    <p className="muted-copy">No Future Opportunities.</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="table-list">
+                <div className="panel-heading">
+                  <h3>Inactive Ideas</h3>
+                  <span>{generalCampaignWorkspace.inactiveGroups.length} groups</span>
+                </div>
+                {generalCampaignWorkspace.inactiveGroups.map((group) => (
+                  <div className="table-row" key={`inactive-group:${group.reason}`}>
+                    <div>
+                      <strong>{group.reason}</strong>
+                      {group.evidence ? <span>{group.evidence}</span> : null}
+                      {group.ideas.map((idea) => (
+                        <span key={`inactive-idea:${idea.ideaId}`}>{idea.title}</span>
+                      ))}
+                    </div>
+                    <div className="draft-actions">
+                      {group.ideas.map((idea) => (
+                        <form action={reclassifyInactiveGeneralIdeaAction} key={`reclassify:${idea.ideaId}`}>
+                          <input name="ideaId" type="hidden" value={idea.ideaId} />
+                          <select defaultValue="future_opportunity" name="nextState">
+                            <option value="future_opportunity">Future Opportunity</option>
+                            <option value="ready_for_rd_review">Ready for Review</option>
+                            <option value="general_idea">General Idea</option>
+                          </select>
+                          <input
+                            defaultValue="Owner corrected AI classification."
+                            name="reason"
+                            type="hidden"
+                          />
+                          <button disabled={!generalCampaignWorkspace.canManage} type="submit">Reclassify</button>
+                        </form>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {generalCampaignWorkspace.inactiveGroups.length === 0 ? (
+                  <p className="muted-copy">No Inactive Ideas.</p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           {employeeIntakeView ? (
             <section className="panel intake-panel">

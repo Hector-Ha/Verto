@@ -6,6 +6,7 @@ import {
   DEMO_AUDIT_EVENTS,
   DEMO_CAMPAIGN_MEMBERSHIPS,
   DEMO_CAMPAIGNS,
+  DEMO_GENERAL_CAMPAIGN_REVIEW_PACKETS,
   DEMO_IDEA_STATES,
   DEMO_IDEAS,
   DEMO_KNOWLEDGE_REPORTS,
@@ -238,6 +239,39 @@ export async function seedDemoData() {
           report.approvedAt,
           BASELINE_TIMESTAMP,
           BASELINE_TIMESTAMP
+        ]
+      );
+    }
+
+    for (const packet of DEMO_GENERAL_CAMPAIGN_REVIEW_PACKETS) {
+      await connection.execute(
+        `
+          INSERT INTO general_campaign_review_packets (
+            id,
+            campaign_id,
+            packet_text,
+            context_version,
+            created_by_user_id,
+            is_current,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            campaign_id = VALUES(campaign_id),
+            packet_text = VALUES(packet_text),
+            context_version = VALUES(context_version),
+            created_by_user_id = VALUES(created_by_user_id),
+            is_current = VALUES(is_current),
+            created_at = VALUES(created_at)
+        `,
+        [
+          packet.id,
+          packet.campaignId,
+          packet.packetText,
+          packet.contextVersion,
+          packet.createdByUserId,
+          packet.isCurrent,
+          packet.createdAt
         ]
       );
     }

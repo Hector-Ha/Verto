@@ -195,6 +195,19 @@ export const DEMO_KNOWLEDGE_REPORTS = [
   }
 ] as const;
 
+export const DEMO_GENERAL_CAMPAIGN_REVIEW_PACKETS = [
+  {
+    campaignId: "general-campaign",
+    contextVersion: "general-packet-baseline",
+    createdAt: BASELINE_TIMESTAMP,
+    createdByUserId: "rd-manager",
+    id: "general-packet-baseline",
+    isCurrent: true,
+    packetText:
+      "Broad General Campaign review packet: problem or opportunity, expected benefit, reuse or learning path, and any source evidence."
+  }
+] as const;
+
 export const DEMO_IDEAS = [
   {
     campaignId: "general-campaign",
