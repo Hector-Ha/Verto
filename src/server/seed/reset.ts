@@ -13,6 +13,8 @@ const RESET_TABLES = [
   "idea_routing_decisions",
   "idea_review_outcomes",
   "idea_review_recommendations",
+  "idea_classification_group_members",
+  "idea_classification_groups",
   "idea_rankings",
   "idea_review_summaries",
   "idea_family_members",

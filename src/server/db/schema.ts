@@ -421,6 +421,47 @@ export const ideaRankings = mysqlTable("idea_rankings", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+export const ideaClassificationGroupType = mysqlEnum("group_type", [
+  "standard",
+  "single_idea",
+  "emerging_theme"
+]);
+
+export const ideaClassificationGroups = mysqlTable("idea_classification_groups", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  groupType: ideaClassificationGroupType.notNull(),
+  summaryText: text("summary_text").notNull(),
+  contextVersion: varchar("context_version", { length: 255 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  rankPosition: int("rank_position"),
+  rankingContextVersion: varchar("ranking_context_version", { length: 255 }),
+  rankedAt: timestamp("ranked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const ideaClassificationGroupMembers = mysqlTable(
+  "idea_classification_group_members",
+  {
+    groupId: varchar("group_id", { length: 64 })
+      .notNull()
+      .references(() => ideaClassificationGroups.id, { onDelete: "cascade" }),
+    ideaId: varchar("idea_id", { length: 64 })
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    placementReason: text("placement_reason").notNull(),
+    contextVersion: varchar("context_version", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+  },
+  (table) => [primaryKey({ columns: [table.groupId, table.ideaId] })]
+);
+
 export const ideaReviewRecommendations = mysqlTable("idea_review_recommendations", {
   id: varchar("id", { length: 64 }).primaryKey(),
   campaignId: varchar("campaign_id", { length: 64 })

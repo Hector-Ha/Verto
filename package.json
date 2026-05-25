@@ -18,6 +18,7 @@
     "idea:family-check": "bun run scripts/idea-family-check.ts",
     "rd-review:board-check": "bun run scripts/rd-review-board-check.ts",
     "general:campaign-check": "bun run scripts/general-campaign-check.ts",
+    "classification:groups-check": "bun run scripts/classification-groups-check.ts",
     "clarification:reminders": "bun run scripts/clarification-reminder-job.ts",
     "clarification:expire": "bun run scripts/clarification-expiry-job.ts",
     "campaign:setup-check": "bun run scripts/campaign-setup-check.ts",

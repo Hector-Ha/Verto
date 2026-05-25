@@ -12,6 +12,11 @@ import {
   submitIdeaDraftAction
 } from "@/server/employee-intake/actions";
 import {
+  classifyIdeaIntoGroupsAction,
+  rankSpecificCampaignGroupsAction,
+  updateIdeaClassificationAfterClarificationAction
+} from "@/server/classification-groups/actions";
+import {
   reclassifyInactiveGeneralIdeaAction,
   updateGeneralCampaignReviewPacketAction
 } from "@/server/general-campaign/actions";
@@ -48,6 +53,10 @@ import {
   getAccessibleClarificationReviewView,
   getAccessibleClarificationTriggerIdeas
 } from "@/server/clarifications/service";
+import {
+  getAccessibleClassificationCandidateIdeas,
+  getAccessibleClassificationGroupReviewView
+} from "@/server/classification-groups/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
 import { getGeneralCampaignWorkspaceView } from "@/server/general-campaign/service";
@@ -92,6 +101,8 @@ export default async function Home({ searchParams }: HomeProps) {
   let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
   let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
   let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
+  let classificationCandidateIdeas: Awaited<ReturnType<typeof getAccessibleClassificationCandidateIdeas>> = [];
+  let classificationGroupView: Awaited<ReturnType<typeof getAccessibleClassificationGroupReviewView>> = [];
   let ideaFamilyCandidates: Awaited<ReturnType<typeof getAccessibleIdeaFamilyCandidates>> = [];
   let ideaFamilyReviewView: Awaited<ReturnType<typeof getAccessibleIdeaFamilyReviewView>> = [];
   let routingCandidateIdeas: Awaited<ReturnType<typeof getAccessibleRoutingCandidateIdeas>> = [];
@@ -124,6 +135,8 @@ export default async function Home({ searchParams }: HomeProps) {
         nextReceipt,
         nextClarificationReviewView,
         nextClarificationTriggerIdeas,
+        nextClassificationCandidateIdeas,
+        nextClassificationGroupView,
         nextIdeaFamilyCandidates,
         nextIdeaFamilyReviewView,
         nextRoutingCandidateIdeas,
@@ -140,6 +153,8 @@ export default async function Home({ searchParams }: HomeProps) {
           : Promise.resolve(null),
         getAccessibleClarificationReviewView(activeSession),
         getAccessibleClarificationTriggerIdeas(activeSession),
+        getAccessibleClassificationCandidateIdeas(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleClassificationGroupReviewView(activeSession),
         getAccessibleIdeaFamilyCandidates(activeSession),
         activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(activeSession),
         getAccessibleRoutingCandidateIdeas(activeSession),
@@ -155,6 +170,8 @@ export default async function Home({ searchParams }: HomeProps) {
       submissionReceipt = nextReceipt;
       clarificationReviewView = nextClarificationReviewView;
       clarificationTriggerIdeas = nextClarificationTriggerIdeas;
+      classificationCandidateIdeas = nextClassificationCandidateIdeas;
+      classificationGroupView = nextClassificationGroupView;
       ideaFamilyCandidates = nextIdeaFamilyCandidates;
       ideaFamilyReviewView = nextIdeaFamilyReviewView;
       routingCandidateIdeas = nextRoutingCandidateIdeas;
@@ -752,6 +769,93 @@ export default async function Home({ searchParams }: HomeProps) {
                 {rdReviewBoard.readyPackets.length === 0 ? (
                   <p className="muted-copy">No ideas are Ready for R&amp;D Review.</p>
                 ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Classification Groups</h2>
+                <span>{classificationGroupView.length} groups</span>
+              </div>
+
+              <div className="campaign-control-list">
+                <article className="campaign-control">
+                  <div className="campaign-control-heading">
+                    <div>
+                      <h3>Group Ranking</h3>
+                      <span>Specific campaigns only</span>
+                    </div>
+                    <code>expected benefit</code>
+                  </div>
+                  <div className="control-row">
+                    {campaignOperations?.specificCampaigns.map((campaign) => (
+                      <form action={rankSpecificCampaignGroupsAction} key={`classification-rank:${campaign.id}`}>
+                        <input name="campaignId" type="hidden" value={campaign.id} />
+                        <button disabled={!session} type="submit">
+                          Rank {campaign.publicTitle}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </article>
+
+                {classificationCandidateIdeas.map((idea) => {
+                  const generalClassifyBlocked =
+                    idea.campaignType === "general" && !["rd_manager", "general_campaign_owner"].includes(session.role.id);
+
+                  return (
+                    <article className="campaign-control" key={`classification-candidate:${idea.ideaId}`}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{idea.title}</h3>
+                          <span>{idea.campaignTitle}</span>
+                        </div>
+                        <code>{idea.campaignType}</code>
+                      </div>
+                      <div className="control-row">
+                        <form action={classifyIdeaIntoGroupsAction}>
+                          <input name="ideaId" type="hidden" value={idea.ideaId} />
+                          <button disabled={!session || generalClassifyBlocked} type="submit">
+                            Classify
+                          </button>
+                        </form>
+                        <form action={updateIdeaClassificationAfterClarificationAction}>
+                          <input name="ideaId" type="hidden" value={idea.ideaId} />
+                          <button disabled={!session || generalClassifyBlocked} type="submit">
+                            Update placement
+                          </button>
+                        </form>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="table-list">
+                {classificationGroupView.map((group) => (
+                  <div className="table-row" key={group.groupId}>
+                    <div>
+                      <strong>
+                        {group.rankPosition ? `#${group.rankPosition} ` : ""}
+                        {group.groupName}
+                      </strong>
+                      <span>
+                        {group.campaignTitle} · {formatStatus(group.groupType)} · {group.primaryIdeaCount} primary
+                      </span>
+                      <span>{group.summary.summaryText}</span>
+                      {group.rankingContextVersion ? <span>Rank context {group.rankingContextVersion}</span> : null}
+                      {group.ideas.map((idea) => (
+                        <span key={`${group.groupId}:${idea.ideaId}`}>
+                          {idea.isPrimary ? "Primary" : "Related"} · {idea.title} · {idea.placementReason}
+                        </span>
+                      ))}
+                    </div>
+                    <code>{group.rankPosition ? "ranked" : "visible"}</code>
+                  </div>
+                ))}
+                {classificationGroupView.length === 0 ? <p className="muted-copy">No classification groups yet.</p> : null}
               </div>
             </section>
           ) : null}
