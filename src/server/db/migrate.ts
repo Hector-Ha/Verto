@@ -30,8 +30,16 @@ async function ensureMigrationTable() {
   }
 }
 
-function checksum(sql: string) {
+function hashSql(sql: string) {
   return crypto.createHash("sha256").update(sql).digest("hex");
+}
+
+function checksum(sql: string) {
+  return hashSql(sql.replace(/\r\n/g, "\n"));
+}
+
+function legacyChecksum(sql: string) {
+  return hashSql(sql);
 }
 
 export async function runMigrations() {
@@ -47,10 +55,11 @@ export async function runMigrations() {
     for (const file of files) {
       const sql = await readFile(path.join(MIGRATIONS_DIR, file), "utf8");
       const fileChecksum = checksum(sql);
+      const legacyFileChecksum = legacyChecksum(sql);
       const appliedChecksum = applied.get(file);
 
       if (appliedChecksum) {
-        if (appliedChecksum !== fileChecksum) {
+        if (appliedChecksum !== fileChecksum && appliedChecksum !== legacyFileChecksum) {
           throw new Error(`Migration ${file} changed after it was applied.`);
         }
         continue;
