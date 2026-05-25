@@ -23,6 +23,7 @@ The core problem is **quality under overload**: refining vague submissions, pres
 - [Stack](#stack)
 - [Getting Started](#getting-started)
 - [Use The Platform UI](#use-the-platform-ui)
+- [Happy Flow Guide](#happy-flow-guide)
 - [Verify Locally](#verify-locally)
 - [Environment Variables](#environment-variables)
 - [Project Status](#project-status)
@@ -170,6 +171,10 @@ The root app is organized as a role-aware SaaS workspace instead of a single com
 | Operations | Protected demo jobs, AI decision log, context management, and reset/reseed controls |
 
 Tabs are access-aware: employee roles see employee-safe intake surfaces, while R&D roles see review, setup, routing, and operations areas according to their seeded permissions.
+
+## Happy Flow Guide
+
+See [HOW_TO_USE.md](HOW_TO_USE.md) for the end-to-end happy path, including persona switches, tab sequence, expected outcomes, verification commands, and screenshot checklist.
 
 ## Verify Locally
 
