@@ -43,7 +43,7 @@ export async function answerSetupQuestionAction(formData: FormData) {
     isContextOverride: readBoolean(formData, "isContextOverride"),
     isIntentionalAmbiguity: readBoolean(formData, "isIntentionalAmbiguity")
   });
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function editPendingSetupAnswerAction(formData: FormData) {
@@ -51,13 +51,13 @@ export async function editPendingSetupAnswerAction(formData: FormData) {
   await editPendingSetupAnswer(session, readString(formData, "answerId"), {
     answerText: readString(formData, "answerText")
   });
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function approveSetupAnswerAction(formData: FormData) {
   const session = await requireSession();
   await approveSetupAnswer(session, readString(formData, "answerId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function rejectSetupAnswerAction(formData: FormData) {
@@ -65,23 +65,23 @@ export async function rejectSetupAnswerAction(formData: FormData) {
   await rejectSetupAnswer(session, readString(formData, "answerId"), {
     reason: readString(formData, "reason")
   });
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function requestAiSetupQuestionAction(formData: FormData) {
   const session = await requireSession();
   await requestAiSetupQuestion(session, readString(formData, "campaignId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function generateCampaignKnowledgeReportAction(formData: FormData) {
   const session = await requireSession();
   await generateCampaignKnowledgeReport(session, readString(formData, "campaignId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function approveCampaignKnowledgeReportAction(formData: FormData) {
   const session = await requireSession();
   await approveCampaignKnowledgeReport(session, readString(formData, "reportId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }

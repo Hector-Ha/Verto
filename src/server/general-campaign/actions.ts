@@ -39,7 +39,7 @@ export async function updateGeneralCampaignReviewPacketAction(formData: FormData
   await updateGeneralCampaignReviewPacket(session, {
     packetText: readString(formData, "packetText")
   });
-  redirect("/");
+  redirect("/?tab=intake");
 }
 
 export async function reclassifyInactiveGeneralIdeaAction(formData: FormData) {
@@ -48,5 +48,5 @@ export async function reclassifyInactiveGeneralIdeaAction(formData: FormData) {
     nextState: readReclassificationState(readString(formData, "nextState")),
     reason: readString(formData, "reason")
   });
-  redirect("/");
+  redirect("/?tab=intake");
 }

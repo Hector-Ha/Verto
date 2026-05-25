@@ -26,6 +26,7 @@
     "campaign:end-check": "bun run scripts/campaign-end-check.ts",
     "demo:controls-check": "bun run scripts/demo-controls-check.ts",
     "demo:browser-smoke": "bun run scripts/browser-smoke.ts",
+    "platform:shell-check": "bun run scripts/platform-shell-check.ts",
     "demo:vertical-smoke": "bun run scripts/full-vertical-smoke.ts",
     "clarification:reminders": "bun run scripts/clarification-reminder-job.ts",
     "clarification:expire": "bun run scripts/clarification-expiry-job.ts",

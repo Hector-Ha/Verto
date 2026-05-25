@@ -126,12 +126,21 @@ async function launchBrowser() {
 
 async function clickRole(page: Page, accessibleName: string) {
   const roleButton = page.getByRole("button", { name: accessibleName });
+  if ((await roleButton.count()) === 0) {
+    await page.getByRole("link", { name: "Overview" }).click();
+    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+  }
   await expect(roleButton).toBeVisible({ timeout: 30_000 });
   if (await roleButton.isDisabled()) {
     return;
   }
 
   await roleButton.click();
+  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+}
+
+async function openWorkspaceTab(page: Page, name: string) {
+  await page.getByRole("link", { name }).click();
   await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
 }
 
@@ -193,6 +202,7 @@ async function assertOutcomeRecorded(ideaId: string) {
 
 async function submitIdeaThroughBrowser(page: Page) {
   await clickRole(page, "Employee Jordan Kim");
+  await openWorkspaceTab(page, "Intake");
   await expect(page.getByRole("heading", { name: "Employee Intake" })).toBeVisible({ timeout: 30_000 });
 
   const intake = page.locator("section.intake-panel");
@@ -213,6 +223,7 @@ async function submitIdeaThroughBrowser(page: Page) {
 
 async function requestClarificationThroughBrowser(page: Page, ideaId: string) {
   await clickRole(page, "R&D Campaign Owner Sam Rivera");
+  await openWorkspaceTab(page, "Review");
   await expect(page.getByRole("heading", { name: "Employee Clarifications" })).toBeVisible({ timeout: 30_000 });
 
   const clarificationCard = page
@@ -238,6 +249,7 @@ async function answerMagicLinkThroughBrowser(page: Page, serverUrl: string, idea
 async function routeAndRecordOutcomeThroughBrowser(page: Page, serverUrl: string, ideaId: string) {
   await page.goto(serverUrl);
   await clickRole(page, "R&D Campaign Owner Sam Rivera");
+  await openWorkspaceTab(page, "Intelligence");
   await expect(page.getByRole("heading", { name: "Pre-R&D Routing" })).toBeVisible({ timeout: 30_000 });
 
   const routingCard = page
@@ -247,6 +259,7 @@ async function routeAndRecordOutcomeThroughBrowser(page: Page, serverUrl: string
   await routingCard.getByRole("button", { name: "Route with AI" }).click({ timeout: 240_000 });
   await page.waitForLoadState("networkidle", { timeout: 240_000 }).catch(() => undefined);
 
+  await openWorkspaceTab(page, "Review");
   const reviewCard = page.locator(`[id="review-idea-${ideaId}"]`);
   await expect(reviewCard).toBeVisible({ timeout: 30_000 });
   await reviewCard.locator('input[name="reasonNote"]').fill("Browser smoke owner decision after employee clarification.");
@@ -258,6 +271,7 @@ async function routeAndRecordOutcomeThroughBrowser(page: Page, serverUrl: string
 async function runDemoControlThroughBrowser(page: Page, serverUrl: string) {
   await page.goto(serverUrl);
   await clickRole(page, "R&D Manager Morgan Lee");
+  await openWorkspaceTab(page, "Operations");
   await expect(page.getByRole("heading", { name: "Demo Operations" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "AI Decision Log" })).toBeVisible({ timeout: 30_000 });
 

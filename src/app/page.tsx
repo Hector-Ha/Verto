@@ -95,18 +95,45 @@ type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+type WorkspaceTab = "campaigns" | "intake" | "intelligence" | "operations" | "overview" | "review";
+
+const workspaceTabs: Array<{ id: WorkspaceTab; label: string; summary: string }> = [
+  { id: "overview", label: "Overview", summary: "Roles, permissions, baseline counts" },
+  { id: "intake", label: "Intake", summary: "Employee submissions and General Campaign" },
+  { id: "review", label: "Review", summary: "Clarifications, digests, outcomes" },
+  { id: "campaigns", label: "Campaigns", summary: "Lifecycle gates and setup" },
+  { id: "intelligence", label: "Intelligence", summary: "Routing, grouping, families" },
+  { id: "operations", label: "Operations", summary: "Demo jobs, logs, context" }
+];
+
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short"
+});
+
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
+}
+
+function formatDateTime(date: Date) {
+  return dateTimeFormatter.format(date);
 }
 
 function formatDateTimeLocal(date: Date | null) {
   return date ? date.toISOString().slice(0, 16) : "";
 }
 
+function isWorkspaceTab(value: string | undefined): value is WorkspaceTab {
+  return workspaceTabs.some((tab) => tab.id === value);
+}
+
 export default async function Home({ searchParams }: HomeProps) {
   const resolvedSearchParams = await searchParams;
   const submittedIdeaId =
     typeof resolvedSearchParams?.submittedIdeaId === "string" ? resolvedSearchParams.submittedIdeaId : null;
+  const requestedTab = typeof resolvedSearchParams?.tab === "string" ? resolvedSearchParams.tab : undefined;
+  const activeTab: WorkspaceTab = isWorkspaceTab(requestedTab) ? requestedTab : submittedIdeaId ? "intake" : "overview";
+  const activeTabMeta = workspaceTabs.find((tab) => tab.id === activeTab) ?? workspaceTabs[0];
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
   let contextManagementView: Awaited<ReturnType<typeof getContextManagementView>> | null = null;
@@ -231,7 +258,7 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   return (
-    <main className="shell">
+    <main className="shell" id="workspace-main" tabIndex={-1}>
       <section className="hero-band">
         <div>
           <p className="eyebrow">Verto</p>
@@ -246,6 +273,32 @@ export default async function Home({ searchParams }: HomeProps) {
 
       {snapshot ? (
         <>
+          <nav aria-label="Primary workspace" className="workspace-tabs">
+            {workspaceTabs.map((tab) => (
+              <a
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                aria-label={tab.label}
+                className={activeTab === tab.id ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+                href={`/?tab=${tab.id}`}
+                key={tab.id}
+              >
+                <strong>{tab.label}</strong>
+                <span aria-hidden="true">{tab.summary}</span>
+              </a>
+            ))}
+          </nav>
+
+          <section className="tab-intro" aria-labelledby="workspace-tab-heading">
+            <div>
+              <p className="eyebrow">Workspace</p>
+              <h2 id="workspace-tab-heading">{activeTabMeta.label}</h2>
+              <p>{activeTabMeta.summary}</p>
+            </div>
+            <code>{session?.role.name ?? "select a role"}</code>
+          </section>
+
+          {activeTab === "overview" ? (
+            <>
           <section className="workspace-grid">
             <div className="panel role-panel">
               <div className="panel-heading">
@@ -259,7 +312,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 </div>
                 <code>{session?.role.name ?? "none"}</code>
               </div>
-              {session ? <p className="session-expiry">Expires {session.expiresAt.toLocaleString("en-US")}</p> : null}
+              {session ? <p className="session-expiry">Expires {formatDateTime(session.expiresAt)}</p> : null}
             </div>
 
             <div className="panel">
@@ -321,8 +374,10 @@ export default async function Home({ searchParams }: HomeProps) {
               </div>
             </section>
           ) : null}
+            </>
+          ) : null}
 
-          {demoOperationsView?.canRunDemoOperations ? (
+          {activeTab === "operations" && demoOperationsView?.canRunDemoOperations ? (
             <section className="panel" id="demo-operations">
               <div className="panel-heading">
                 <h2>Demo Operations</h2>
@@ -391,7 +446,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       <div>
                         <strong>{formatStatus(log.purpose)}</strong>
                         <span>{log.outputSummary ?? "No summary recorded."}</span>
-                        <span>{log.createdAt.toLocaleString("en-US")}</span>
+                        <span>{formatDateTime(log.createdAt)}</span>
                       </div>
                       <code>{formatStatus(log.status)}</code>
                     </div>
@@ -404,6 +459,8 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
+          {activeTab === "overview" ? (
+            <>
           <section className="metrics-grid" aria-label="demo baseline counts">
             <div className="metric">
               <span>Users</span>
@@ -460,8 +517,10 @@ export default async function Home({ searchParams }: HomeProps) {
               </div>
             </div>
           </section>
+            </>
+          ) : null}
 
-          {contextManagementView ? (
+          {activeTab === "operations" && contextManagementView ? (
             <section className="panel context-panel">
               <div className="panel-heading">
                 <h2>Context Management</h2>
@@ -645,6 +704,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
+          {activeTab === "intake" ? (
           <section className="panel">
             <div className="panel-heading">
               <h2>General Ideas</h2>
@@ -662,8 +722,9 @@ export default async function Home({ searchParams }: HomeProps) {
               ))}
             </div>
           </section>
+          ) : null}
 
-          {generalCampaignWorkspace ? (
+          {activeTab === "intake" && generalCampaignWorkspace ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>General Campaign Workspace</h2>
@@ -804,7 +865,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {employeeIntakeView ? (
+          {activeTab === "intake" && employeeIntakeView ? (
             <section className="panel intake-panel">
               <div className="panel-heading">
                 <h2>Employee Intake</h2>
@@ -929,7 +990,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" ? (
+          {activeTab === "review" && session && session.role.id !== "employee" ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>Employee Clarifications</h2>
@@ -942,7 +1003,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       <strong>{request.ideaTitle}</strong>
                       <span>{request.requestText}</span>
                       <span>Expires {formatClarificationExpiryDate(request.expiresAt)}</span>
-                      {request.reminderSentAt ? <span>Reminder sent {request.reminderSentAt.toLocaleString("en-US")}</span> : null}
+                      {request.reminderSentAt ? <span>Reminder sent {formatDateTime(request.reminderSentAt)}</span> : null}
                       {request.answerText ? <span>{request.answerText}</span> : null}
                       {request.assumptionRoutingDecision ? (
                         <span>
@@ -981,7 +1042,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" ? (
+          {activeTab === "review" && session && session.role.id !== "employee" ? (
             <section className="panel" id="review-digests">
               <div className="panel-heading">
                 <h2>Scheduled Review Digests</h2>
@@ -994,7 +1055,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       <div>
                         <h3>{digest.campaignTitle}</h3>
                         <span>
-                          {formatStatus(digest.cadence)} · {digest.generatedAt.toLocaleString("en-US")}
+                          {formatStatus(digest.cadence)} · {formatDateTime(digest.generatedAt)}
                         </span>
                       </div>
                       <code>{digest.itemCount} updates</code>
@@ -1019,7 +1080,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" && rdReviewBoard ? (
+          {activeTab === "review" && session && session.role.id !== "employee" && rdReviewBoard ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>R&amp;D Review Board</h2>
@@ -1115,7 +1176,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" ? (
+          {activeTab === "intelligence" && session && session.role.id !== "employee" ? (
             <section className="panel" id="classification-groups">
               <div className="panel-heading">
                 <h2>Classification Groups</h2>
@@ -1202,7 +1263,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" ? (
+          {activeTab === "intelligence" && session && session.role.id !== "employee" ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>Idea Families</h2>
@@ -1262,7 +1323,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {session && session.role.id !== "employee" ? (
+          {activeTab === "intelligence" && session && session.role.id !== "employee" ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>Pre-R&amp;D Routing</h2>
@@ -1373,7 +1434,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {campaignOperations ? (
+          {activeTab === "campaigns" && campaignOperations ? (
             <section className="panel">
               <div className="panel-heading">
                 <h2>Campaign Controls</h2>
@@ -1514,7 +1575,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </section>
           ) : null}
 
-          {setupView ? (
+          {activeTab === "campaigns" && setupView ? (
             <section className="panel setup-panel">
               <div className="panel-heading">
                 <h2>Campaign Setup</h2>

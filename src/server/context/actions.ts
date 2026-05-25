@@ -52,13 +52,13 @@ export async function createCompanyContextDraftAction(formData: FormData) {
     },
     title: readString(formData, "title")
   });
-  redirect("/");
+  redirect("/?tab=operations");
 }
 
 export async function approveCompanyContextAction(formData: FormData) {
   const session = await requireSession();
   await approveCompanyContext(session, readString(formData, "contextId"));
-  redirect("/");
+  redirect("/?tab=operations");
 }
 
 export async function createGlobalContextProposalAction(formData: FormData) {
@@ -68,19 +68,19 @@ export async function createGlobalContextProposalAction(formData: FormData) {
     rationale: readString(formData, "rationale"),
     title: readString(formData, "title")
   });
-  redirect("/");
+  redirect("/?tab=operations");
 }
 
 export async function approveGlobalContextProposalAction(formData: FormData) {
   const session = await requireSession();
   await approveGlobalContextProposal(session, readString(formData, "proposalId"));
-  redirect("/");
+  redirect("/?tab=operations");
 }
 
 export async function runContextImpactCheckAction(formData: FormData) {
   const session = await requireSession();
   await runContextImpactCheck(session, readString(formData, "contextId"));
-  redirect("/");
+  redirect("/?tab=operations");
 }
 
 export async function resolveContextChangeAlertAction(formData: FormData) {
@@ -94,5 +94,5 @@ export async function resolveContextChangeAlertAction(formData: FormData) {
     note: readString(formData, "note"),
     resolutionType: resolutionType as (typeof contextAlertResolutionOptions)[number]
   });
-  redirect("/");
+  redirect("/?tab=operations");
 }

@@ -26,17 +26,17 @@ async function requireSession() {
 export async function routeIdeaBeforeRdReviewAction(formData: FormData) {
   const session = await requireSession();
   await routeIdeaBeforeRdReview(session, readString(formData, "ideaId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }
 
 export async function runCampaignRoutingRecheckAction(formData: FormData) {
   const session = await requireSession();
   await runCampaignRoutingRecheck(session, readString(formData, "campaignId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }
 
 export async function runGeneralCampaignRoutingRecheckAction() {
   const session = await requireSession();
   await runGeneralCampaignRoutingRecheck(session);
-  redirect("/");
+  redirect("/?tab=intelligence");
 }

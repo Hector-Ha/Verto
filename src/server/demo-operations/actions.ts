@@ -59,5 +59,5 @@ export async function runDemoOperationAction(formData: FormData) {
     campaignId: readOptionalString(formData, "campaignId"),
     operation
   });
-  redirect("/");
+  redirect("/?tab=operations");
 }

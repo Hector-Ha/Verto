@@ -22,6 +22,7 @@ The core problem is **quality under overload**: refining vague submissions, pres
 - [Core Workflows](#core-workflows)
 - [Stack](#stack)
 - [Getting Started](#getting-started)
+- [Use The Platform UI](#use-the-platform-ui)
 - [Verify Locally](#verify-locally)
 - [Environment Variables](#environment-variables)
 - [Project Status](#project-status)
@@ -154,6 +155,21 @@ Open [http://localhost:3000](http://localhost:3000).
 ```bash
 bun run db:reset
 ```
+
+## Use The Platform UI
+
+The root app is organized as a role-aware SaaS workspace instead of a single component showcase page. Start on **Overview** to switch personas and inspect baseline counts, then move through these platform tabs:
+
+| Tab | Primary use |
+| --- | --- |
+| Overview | Demo role switcher, permission boundary, baseline counts, seeded campaigns and users |
+| Intake | Employee idea submission, saved drafts, and General Campaign owner workspace |
+| Review | Employee clarifications, scheduled review digests, and R&D review outcomes |
+| Campaigns | Campaign creation, lifecycle gates, ownership, team membership, and setup Question Mode |
+| Intelligence | Pre-R&D routing, campaign pull-in, classification groups, and idea families |
+| Operations | Protected demo jobs, AI decision log, context management, and reset/reseed controls |
+
+Tabs are access-aware: employee roles see employee-safe intake surfaces, while R&D roles see review, setup, routing, and operations areas according to their seeded permissions.
 
 ## Verify Locally
 

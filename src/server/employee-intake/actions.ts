@@ -45,7 +45,7 @@ function readIdeaFields(formData: FormData) {
 }
 
 function redirectWithReceipt(ideaId: string) {
-  redirect(`/?submittedIdeaId=${encodeURIComponent(ideaId)}`);
+  redirect(`/?tab=intake&submittedIdeaId=${encodeURIComponent(ideaId)}`);
 }
 
 export async function saveIdeaDraftAction(formData: FormData) {
@@ -54,13 +54,13 @@ export async function saveIdeaDraftAction(formData: FormData) {
     ...readIdeaFields(formData),
     draftId: readOptionalString(formData, "draftId") ?? undefined
   });
-  redirect("/");
+  redirect("/?tab=intake");
 }
 
 export async function deleteIdeaDraftAction(formData: FormData) {
   const session = await requireSession();
   await deleteIdeaDraft(session, readString(formData, "draftId"));
-  redirect("/");
+  redirect("/?tab=intake");
 }
 
 export async function submitIdeaAction(formData: FormData) {

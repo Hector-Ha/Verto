@@ -26,11 +26,11 @@ async function requireSession() {
 export async function analyzeIdeaFamilyAction(formData: FormData) {
   const session = await requireSession();
   await analyzeIdeaFamilyForIdea(session, readString(formData, "ideaId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }
 
 export async function regenerateIdeaFamilySummaryAction(formData: FormData) {
   const session = await requireSession();
   await regenerateIdeaFamilySummary(session, readString(formData, "familyId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }

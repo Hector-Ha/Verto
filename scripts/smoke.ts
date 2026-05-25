@@ -35,7 +35,7 @@ async function rootRenders(url: string) {
   try {
     const response = await fetch(url, { signal: controller.signal });
     const body = await response.text();
-    return response.ok && body.includes("Verto demo baseline") && body.includes("General Ideas");
+    return response.ok && body.includes("Verto demo baseline") && body.includes("Primary workspace");
   } catch {
     return false;
   } finally {

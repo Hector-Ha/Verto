@@ -26,5 +26,5 @@ async function requireSession() {
 export async function runCampaignIdeaPullInAction(formData: FormData) {
   const session = await requireSession();
   await runCampaignIdeaPullIn(session, readString(formData, "campaignId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }

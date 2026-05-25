@@ -54,7 +54,7 @@ export async function assignIdeaRankingAction(formData: FormData) {
       .map((reason) => reason.trim())
       .filter(Boolean)
   });
-  redirect("/");
+  redirect("/?tab=review");
 }
 
 export async function recommendReviewOutcomeAction(formData: FormData) {
@@ -64,7 +64,7 @@ export async function recommendReviewOutcomeAction(formData: FormData) {
     reasonNote: readOptionalString(formData, "reasonNote"),
     reasonTag: readString(formData, "reasonTag")
   });
-  redirect("/");
+  redirect("/?tab=review");
 }
 
 export async function recordReviewOutcomeAction(formData: FormData) {
@@ -76,5 +76,5 @@ export async function recordReviewOutcomeAction(formData: FormData) {
     reasonNote: readOptionalString(formData, "reasonNote"),
     reasonTag: readString(formData, "reasonTag")
   });
-  redirect("/");
+  redirect("/?tab=review");
 }

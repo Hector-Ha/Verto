@@ -30,17 +30,17 @@ async function requireSession() {
 export async function classifyIdeaIntoGroupsAction(formData: FormData) {
   const session = await requireSession();
   await classifyIdeaIntoGroups(session, readString(formData, "ideaId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }
 
 export async function updateIdeaClassificationAfterClarificationAction(formData: FormData) {
   const session = await requireSession();
   await updateIdeaClassificationAfterClarification(session, readString(formData, "ideaId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }
 
 export async function rankSpecificCampaignGroupsAction(formData: FormData) {
   const session = await requireSession();
   await rankSpecificCampaignGroups(session, readString(formData, "campaignId"));
-  redirect("/");
+  redirect("/?tab=intelligence");
 }

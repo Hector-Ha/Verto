@@ -13,6 +13,10 @@ type MigrationRow = RowDataPacket & {
 };
 
 const MIGRATIONS_DIR = path.join(process.cwd(), "drizzle");
+const RENAMED_MIGRATIONS: Record<string, string[]> = {
+  "0015_campaign_pull_in.sql": ["0013_campaign_pull_in.sql"],
+  "0016_context_impact.sql": ["0013_context_impact.sql"]
+};
 
 async function ensureMigrationTable() {
   const connection = await createMysqlConnection({ multipleStatements: true });
@@ -62,6 +66,17 @@ export async function runMigrations() {
         if (appliedChecksum !== fileChecksum && appliedChecksum !== legacyFileChecksum) {
           throw new Error(`Migration ${file} changed after it was applied.`);
         }
+        continue;
+      }
+
+      const renamedFrom = RENAMED_MIGRATIONS[file]?.find((legacyFile) => {
+        const legacyAppliedChecksum = applied.get(legacyFile);
+        return legacyAppliedChecksum === fileChecksum || legacyAppliedChecksum === legacyFileChecksum;
+      });
+      if (renamedFrom) {
+        await connection.execute("INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)", [file, fileChecksum]);
+        applied.set(file, fileChecksum);
+        console.log(`migration alias recorded: ${renamedFrom} -> ${file}`);
         continue;
       }
 

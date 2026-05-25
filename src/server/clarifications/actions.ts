@@ -35,7 +35,7 @@ async function requireSession() {
 export async function requestEmployeeClarificationAction(formData: FormData) {
   const session = await requireSession();
   await requestEmployeeClarification(session, readString(formData, "ideaId"));
-  redirect("/");
+  redirect("/?tab=review");
 }
 
 export async function submitClarificationAnswerAction(formData: FormData) {

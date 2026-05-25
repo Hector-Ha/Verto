@@ -52,25 +52,25 @@ export async function createCampaignAction(formData: FormData) {
     publicPrompt: readString(formData, "publicPrompt"),
     publicTitle: readString(formData, "publicTitle")
   });
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function changeCampaignOwnerAction(formData: FormData) {
   const session = await requireSession();
   await changeCampaignOwner(session, readString(formData, "campaignId"), readString(formData, "ownerUserId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function addCampaignTeamMemberAction(formData: FormData) {
   const session = await requireSession();
   await addCampaignTeamMember(session, readString(formData, "campaignId"), readString(formData, "userId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function removeCampaignTeamMemberAction(formData: FormData) {
   const session = await requireSession();
   await removeCampaignTeamMember(session, readString(formData, "campaignId"), readString(formData, "userId"));
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
 
 export async function changeCampaignLifecycleAction(formData: FormData) {
@@ -85,5 +85,5 @@ export async function changeCampaignLifecycleAction(formData: FormData) {
     intakeStartsAt: readOptionalDate(formData, "intakeStartsAt"),
     nextStatus
   });
-  redirect("/");
+  redirect("/?tab=campaigns");
 }
