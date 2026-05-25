@@ -1,0 +1,40 @@
+CREATE TABLE `idea_routing_decisions` (
+  `id` varchar(64) NOT NULL,
+  `idea_id` varchar(64) NOT NULL,
+  `campaign_id` varchar(64) NOT NULL,
+  `ai_decision_log_id` varchar(64),
+  `trigger` enum('initial_route','campaign_context_recheck','general_context_recheck') NOT NULL,
+  `old_workflow_state` enum(
+    'submitted',
+    'general_idea',
+    'needs_employee_clarification',
+    'ready_for_rd_review',
+    'future_opportunity',
+    'inactive_idea',
+    'potential_idea'
+  ) NOT NULL,
+  `new_workflow_state` enum(
+    'submitted',
+    'general_idea',
+    'needs_employee_clarification',
+    'ready_for_rd_review',
+    'future_opportunity',
+    'inactive_idea',
+    'potential_idea'
+  ) NOT NULL,
+  `old_reason` text,
+  `new_reason` text NOT NULL,
+  `review_packet_status` enum('ready','missing_critical_info','not_applicable') NOT NULL,
+  `readiness_basis` text NOT NULL,
+  `out_of_scope_matched` tinyint(1) NOT NULL DEFAULT 0,
+  `out_of_scope_reason` text,
+  `context_version` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idea_routing_decisions_idea_idx` (`idea_id`),
+  KEY `idea_routing_decisions_campaign_idx` (`campaign_id`),
+  KEY `idea_routing_decisions_ai_log_idx` (`ai_decision_log_id`),
+  CONSTRAINT `idea_routing_decisions_idea_fk` FOREIGN KEY (`idea_id`) REFERENCES `ideas` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `idea_routing_decisions_campaign_fk` FOREIGN KEY (`campaign_id`) REFERENCES `campaigns` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `idea_routing_decisions_ai_log_fk` FOREIGN KEY (`ai_decision_log_id`) REFERENCES `ai_decision_logs` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
