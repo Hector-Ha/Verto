@@ -300,6 +300,111 @@ export const aiDecisionLogs = mysqlTable("ai_decision_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+export const contextDocumentType = mysqlEnum("context_type", ["company", "global_innovation"]);
+export const contextDocumentStatus = mysqlEnum("status", ["draft", "approved", "superseded"]);
+
+export const contextDocuments = mysqlTable("context_documents", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  contextType: contextDocumentType.notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  sourceMetadata: json("source_metadata").$type<Record<string, unknown> | null>(),
+  status: contextDocumentStatus.notNull(),
+  createdByUserId: varchar("created_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id),
+  approvedByUserId: varchar("approved_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const globalContextProposalStatus = mysqlEnum("status", [
+  "pending_manager_approval",
+  "approved",
+  "rejected"
+]);
+
+export const globalContextChangeProposals = mysqlTable("global_context_change_proposals", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  rationale: text("rationale").notNull(),
+  proposedByUserId: varchar("proposed_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id),
+  status: globalContextProposalStatus.notNull(),
+  approvedContextId: varchar("approved_context_id", { length: 64 }).references(() => contextDocuments.id, {
+    onDelete: "set null"
+  }),
+  decidedByUserId: varchar("decided_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  decidedAt: timestamp("decided_at"),
+  decisionReason: text("decision_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const contextImpactLevel = mysqlEnum("impact_level", [
+  "no_impact",
+  "active_alert",
+  "draft_warning",
+  "draft_hard_blocker"
+]);
+
+export const contextImpactChecks = mysqlTable("context_impact_checks", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sourceContextId: varchar("source_context_id", { length: 64 })
+    .notNull()
+    .references(() => contextDocuments.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  aiDecisionLogId: varchar("ai_decision_log_id", { length: 64 }).references(() => aiDecisionLogs.id, {
+    onDelete: "set null"
+  }),
+  impactLevel: contextImpactLevel.notNull(),
+  summary: text("summary").notNull(),
+  recommendedResolution: text("recommended_resolution").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const contextChangeAlertStatus = mysqlEnum("status", ["open", "resolved"]);
+export const contextChangeAlertResolution = mysqlEnum("resolution_type", [
+  "no_impact",
+  "update_campaign_context",
+  "campaign_context_override",
+  "follow_up_question",
+  "escalate_to_manager"
+]);
+
+export const contextChangeAlerts = mysqlTable("context_change_alerts", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  impactCheckId: varchar("impact_check_id", { length: 64 })
+    .notNull()
+    .references(() => contextImpactChecks.id, { onDelete: "cascade" }),
+  sourceContextId: varchar("source_context_id", { length: 64 })
+    .notNull()
+    .references(() => contextDocuments.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  status: contextChangeAlertStatus.notNull(),
+  summary: text("summary").notNull(),
+  recommendedResolution: text("recommended_resolution").notNull(),
+  resolutionType: contextChangeAlertResolution,
+  resolutionNote: text("resolution_note"),
+  resolvedByUserId: varchar("resolved_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
 export const routingTrigger = mysqlEnum("trigger", [
   "initial_route",
   "campaign_context_recheck",

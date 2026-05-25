@@ -17,6 +17,14 @@ import {
   updateIdeaClassificationAfterClarificationAction
 } from "@/server/classification-groups/actions";
 import {
+  approveCompanyContextAction,
+  approveGlobalContextProposalAction,
+  createCompanyContextDraftAction,
+  createGlobalContextProposalAction,
+  resolveContextChangeAlertAction,
+  runContextImpactCheckAction
+} from "@/server/context/actions";
+import {
   reclassifyInactiveGeneralIdeaAction,
   updateGeneralCampaignReviewPacketAction
 } from "@/server/general-campaign/actions";
@@ -59,6 +67,7 @@ import {
 } from "@/server/classification-groups/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
 import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
+import { getContextManagementView } from "@/server/context/service";
 import { getGeneralCampaignWorkspaceView } from "@/server/general-campaign/service";
 import {
   getAccessibleIdeaFamilyCandidates,
@@ -95,6 +104,7 @@ export default async function Home({ searchParams }: HomeProps) {
     typeof resolvedSearchParams?.submittedIdeaId === "string" ? resolvedSearchParams.submittedIdeaId : null;
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
+  let contextManagementView: Awaited<ReturnType<typeof getContextManagementView>> | null = null;
   let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
   let employeeIntakeView: Awaited<ReturnType<typeof getEmployeeIntakeView>> | null = null;
   let generalCampaignWorkspace: Awaited<ReturnType<typeof getGeneralCampaignWorkspaceView>> | null = null;
@@ -142,7 +152,8 @@ export default async function Home({ searchParams }: HomeProps) {
         nextRoutingCandidateIdeas,
         nextRoutingReviewView,
         nextRdReviewBoard,
-        nextGeneralCampaignWorkspace
+        nextGeneralCampaignWorkspace,
+        nextContextManagementView
       ] = await Promise.all([
         getDemoPermissionSummary(activeSession),
         getCampaignOperationsView(activeSession),
@@ -160,11 +171,13 @@ export default async function Home({ searchParams }: HomeProps) {
         getAccessibleRoutingCandidateIdeas(activeSession),
         activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(activeSession),
         activeSession.role.id === "employee" ? Promise.resolve(null) : getAccessibleRdReviewBoard(activeSession),
-        getGeneralCampaignWorkspaceView(activeSession).catch(() => null)
+        getGeneralCampaignWorkspaceView(activeSession).catch(() => null),
+        activeSession.role.id === "employee" ? Promise.resolve(null) : getContextManagementView(activeSession)
       ]);
 
       permissionSummary = nextPermissionSummary;
       campaignOperations = nextCampaignOperations;
+      contextManagementView = nextContextManagementView;
       generalCampaignWorkspace = nextGeneralCampaignWorkspace;
       employeeIntakeView = nextEmployeeIntakeView;
       submissionReceipt = nextReceipt;
@@ -340,6 +353,190 @@ export default async function Home({ searchParams }: HomeProps) {
               </div>
             </div>
           </section>
+
+          {contextManagementView ? (
+            <section className="panel context-panel">
+              <div className="panel-heading">
+                <h2>Context Management</h2>
+                <span>{contextManagementView.canManageContext ? "manager" : "campaign access"}</span>
+              </div>
+
+              <div className="context-grid">
+                <article className="context-card">
+                  <div className="campaign-control-heading">
+                    <div>
+                      <h3>Company Context</h3>
+                      <span>{contextManagementView.companyContext?.status ?? "missing"}</span>
+                    </div>
+                    {contextManagementView.companyContext?.status === "approved" && contextManagementView.canManageContext ? (
+                      <form action={runContextImpactCheckAction}>
+                        <input name="contextId" type="hidden" value={contextManagementView.companyContext.id} />
+                        <button type="submit">Run impact check</button>
+                      </form>
+                    ) : null}
+                  </div>
+
+                  {contextManagementView.companyContext ? (
+                    <div className="context-current">
+                      <strong>{contextManagementView.companyContext.title}</strong>
+                      <span>{contextManagementView.companyContext.body}</span>
+                      {contextManagementView.companyContext.status === "draft" && contextManagementView.canManageContext ? (
+                        <form action={approveCompanyContextAction}>
+                          <input name="contextId" type="hidden" value={contextManagementView.companyContext.id} />
+                          <button type="submit">Approve context</button>
+                        </form>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="muted-copy">No Company Context approved.</p>
+                  )}
+
+                  {contextManagementView.canManageContext ? (
+                    <form action={createCompanyContextDraftAction} className="context-form">
+                      <label>
+                        <span>Title</span>
+                        <input defaultValue="DemoCo circular manufacturing context" name="title" required />
+                      </label>
+                      <label>
+                        <span>Manual description</span>
+                        <textarea
+                          defaultValue="Company-wide reference context for circular manufacturing, supplier reuse evidence, and R&D fit."
+                          name="body"
+                          required
+                          rows={4}
+                        />
+                      </label>
+                      <label>
+                        <span>Public source metadata</span>
+                        <textarea defaultValue="https://example.com/demo-co/sustainability" name="publicSources" rows={2} />
+                      </label>
+                      <button type="submit">Save draft</button>
+                    </form>
+                  ) : null}
+                </article>
+
+                <article className="context-card">
+                  <div className="campaign-control-heading">
+                    <div>
+                      <h3>Global Innovation Context</h3>
+                      <span>{contextManagementView.globalInnovationContext?.status ?? "no approved context"}</span>
+                    </div>
+                    {contextManagementView.globalInnovationContext?.status === "approved" && contextManagementView.canManageContext ? (
+                      <form action={runContextImpactCheckAction}>
+                        <input name="contextId" type="hidden" value={contextManagementView.globalInnovationContext.id} />
+                        <button type="submit">Run impact check</button>
+                      </form>
+                    ) : null}
+                  </div>
+
+                  {contextManagementView.globalInnovationContext ? (
+                    <div className="context-current">
+                      <strong>{contextManagementView.globalInnovationContext.title}</strong>
+                      <span>{contextManagementView.globalInnovationContext.body}</span>
+                    </div>
+                  ) : (
+                    <p className="muted-copy">No approved Global Innovation Context.</p>
+                  )}
+
+                  <form action={createGlobalContextProposalAction} className="context-form">
+                    <label>
+                      <span>Proposal title</span>
+                      <input defaultValue="Prefer traceable reuse learnings" name="title" required />
+                    </label>
+                    <label>
+                      <span>Proposed context</span>
+                      <textarea
+                        defaultValue="Prefer reuse ideas with cross-campaign learning value and source trace."
+                        name="body"
+                        required
+                        rows={3}
+                      />
+                    </label>
+                    <label>
+                      <span>Rationale</span>
+                      <textarea defaultValue="Retrospective pattern from prior reuse work." name="rationale" required rows={2} />
+                    </label>
+                    <button type="submit">Create proposal</button>
+                  </form>
+                </article>
+              </div>
+
+              <div className="context-grid">
+                <article className="context-card">
+                  <div className="panel-heading">
+                    <h3>Pending Global Proposals</h3>
+                    <span>{contextManagementView.pendingProposals.length}</span>
+                  </div>
+                  <div className="table-list">
+                    {contextManagementView.pendingProposals.map((proposal) => (
+                      <div className="table-row" key={proposal.id}>
+                        <div>
+                          <strong>{proposal.title}</strong>
+                          <span>{proposal.rationale}</span>
+                        </div>
+                        {contextManagementView.canManageContext ? (
+                          <form action={approveGlobalContextProposalAction}>
+                            <input name="proposalId" type="hidden" value={proposal.id} />
+                            <button type="submit">Approve</button>
+                          </form>
+                        ) : (
+                          <code>{proposal.status}</code>
+                        )}
+                      </div>
+                    ))}
+                    {contextManagementView.pendingProposals.length === 0 ? (
+                      <p className="muted-copy">No pending Global Context Change Proposals.</p>
+                    ) : null}
+                  </div>
+                </article>
+
+                <article className="context-card">
+                  <div className="panel-heading">
+                    <h3>Context Change Alerts</h3>
+                    <span>{contextManagementView.activeAlerts.length}</span>
+                  </div>
+                  <div className="context-alert-list">
+                    {contextManagementView.activeAlerts.map((alert) => (
+                      <div className="context-alert" key={alert.id}>
+                        <div>
+                          <strong>{alert.campaignTitle}</strong>
+                          <span>{alert.summary}</span>
+                          <span>{alert.recommendedResolution}</span>
+                        </div>
+                        <form action={resolveContextChangeAlertAction} className="context-alert-form">
+                          <input name="alertId" type="hidden" value={alert.id} />
+                          <label>
+                            <span>Resolution</span>
+                            <select disabled={!alert.canResolve} name="resolutionType" required>
+                              {alert.resolutionOptions.map((option) => (
+                                <option key={`${alert.id}:${option}`} value={option}>
+                                  {formatStatus(option)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span>Note</span>
+                            <textarea
+                              defaultValue="Campaign owner reviewed this context impact."
+                              disabled={!alert.canResolve}
+                              name="note"
+                              required
+                              rows={2}
+                            />
+                          </label>
+                          <button disabled={!alert.canResolve} type="submit">Resolve</button>
+                        </form>
+                      </div>
+                    ))}
+                    {contextManagementView.activeAlerts.length === 0 ? (
+                      <p className="muted-copy">No active Context Change Alerts.</p>
+                    ) : null}
+                  </div>
+                </article>
+              </div>
+            </section>
+          ) : null}
 
           <section className="panel">
             <div className="panel-heading">
