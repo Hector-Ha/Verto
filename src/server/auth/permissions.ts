@@ -81,6 +81,33 @@ export async function canManageCampaignLifecycle(session: DemoSession, campaignI
   );
 }
 
+export async function canRecordReviewOutcome(session: DemoSession, campaignId: string) {
+  const authority = await getCampaignAuthority(session, campaignId);
+  if (!authority || session.role.id === "employee") {
+    return false;
+  }
+
+  if (authority.type === "general") {
+    return (
+      (session.role.id === "rd_manager" && hasMembership(authority, "manager")) ||
+      (session.role.id === "general_campaign_owner" && hasMembership(authority, "owner"))
+    );
+  }
+
+  return (
+    (session.role.id === "rd_manager" && hasMembership(authority, "manager")) ||
+    (session.role.id === "specific_campaign_owner" && hasMembership(authority, "owner"))
+  );
+}
+
+export async function canRecommendReviewOutcome(session: DemoSession, campaignId: string) {
+  if (!(await canContributeToCampaign(session, campaignId))) {
+    return false;
+  }
+
+  return !(await canRecordReviewOutcome(session, campaignId));
+}
+
 export async function canContributeToCampaign(session: DemoSession, campaignId: string) {
   const authority = await getCampaignAuthority(session, campaignId);
   if (!authority || session.role.id === "employee") {

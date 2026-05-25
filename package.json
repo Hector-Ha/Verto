@@ -16,6 +16,7 @@
     "clarification:check": "bun run scripts/clarification-check.ts",
     "pre-rd:routing-check": "bun run scripts/pre-rd-routing-check.ts",
     "idea:family-check": "bun run scripts/idea-family-check.ts",
+    "rd-review:board-check": "bun run scripts/rd-review-board-check.ts",
     "clarification:reminders": "bun run scripts/clarification-reminder-job.ts",
     "clarification:expire": "bun run scripts/clarification-expiry-job.ts",
     "campaign:setup-check": "bun run scripts/campaign-setup-check.ts",

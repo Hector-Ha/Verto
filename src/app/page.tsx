@@ -27,7 +27,17 @@ import {
 } from "@/server/campaign-setup/actions";
 import { switchRoleAction } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/cookies";
-import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
+import {
+  assignIdeaRankingAction,
+  recordReviewOutcomeAction,
+  recommendReviewOutcomeAction
+} from "@/server/rd-review/actions";
+import {
+  getAccessibleRdReviewBoard,
+  potentialIdeaReasonTags,
+  returnIdeaReasonTags
+} from "@/server/rd-review/service";
+import { canContributeToCampaign, canRecordReviewOutcome, canRecommendReviewOutcome, getDemoPermissionSummary } from "@/server/auth/permissions";
 import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
 import {
   formatClarificationExpiryDate,
@@ -80,6 +90,13 @@ export default async function Home({ searchParams }: HomeProps) {
   let ideaFamilyReviewView: Awaited<ReturnType<typeof getAccessibleIdeaFamilyReviewView>> = [];
   let routingCandidateIdeas: Awaited<ReturnType<typeof getAccessibleRoutingCandidateIdeas>> = [];
   let routingReviewView: Awaited<ReturnType<typeof getAccessibleRoutingReviewView>> = [];
+  let rdReviewBoard: Awaited<ReturnType<typeof getAccessibleRdReviewBoard>> | null = null;
+  let rdReviewPackets: Array<
+    Awaited<ReturnType<typeof getAccessibleRdReviewBoard>>["readyPackets"][number] & {
+      canRecommend: boolean;
+      canRecord: boolean;
+    }
+  > = [];
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
@@ -92,6 +109,7 @@ export default async function Home({ searchParams }: HomeProps) {
       getCurrentSession()
     ]);
     if (session) {
+      const activeSession = session;
       const [
         nextPermissionSummary,
         nextCampaignOperations,
@@ -103,21 +121,23 @@ export default async function Home({ searchParams }: HomeProps) {
         nextIdeaFamilyCandidates,
         nextIdeaFamilyReviewView,
         nextRoutingCandidateIdeas,
-        nextRoutingReviewView
+        nextRoutingReviewView,
+        nextRdReviewBoard
       ] = await Promise.all([
-        getDemoPermissionSummary(session),
-        getCampaignOperationsView(session),
-        canContributeToCampaign(session, "setup-campaign"),
-        session.role.id === "employee" ? getEmployeeIntakeView(session) : Promise.resolve(null),
-        session.role.id === "employee" && submittedIdeaId
-          ? getEmployeeSubmissionReceipt(session, submittedIdeaId)
+        getDemoPermissionSummary(activeSession),
+        getCampaignOperationsView(activeSession),
+        canContributeToCampaign(activeSession, "setup-campaign"),
+        activeSession.role.id === "employee" ? getEmployeeIntakeView(activeSession) : Promise.resolve(null),
+        activeSession.role.id === "employee" && submittedIdeaId
+          ? getEmployeeSubmissionReceipt(activeSession, submittedIdeaId)
           : Promise.resolve(null),
-        getAccessibleClarificationReviewView(session),
-        getAccessibleClarificationTriggerIdeas(session),
-        getAccessibleIdeaFamilyCandidates(session),
-        session.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(session),
-        getAccessibleRoutingCandidateIdeas(session),
-        session.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(session)
+        getAccessibleClarificationReviewView(activeSession),
+        getAccessibleClarificationTriggerIdeas(activeSession),
+        getAccessibleIdeaFamilyCandidates(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(activeSession),
+        getAccessibleRoutingCandidateIdeas(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve(null) : getAccessibleRdReviewBoard(activeSession)
       ]);
 
       permissionSummary = nextPermissionSummary;
@@ -130,7 +150,17 @@ export default async function Home({ searchParams }: HomeProps) {
       ideaFamilyReviewView = nextIdeaFamilyReviewView;
       routingCandidateIdeas = nextRoutingCandidateIdeas;
       routingReviewView = nextRoutingReviewView;
-      setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
+      rdReviewBoard = nextRdReviewBoard;
+      if (nextRdReviewBoard) {
+        rdReviewPackets = await Promise.all(
+          nextRdReviewBoard.readyPackets.map(async (packet) => ({
+            ...packet,
+            canRecommend: await canRecommendReviewOutcome(activeSession, packet.campaignId),
+            canRecord: await canRecordReviewOutcome(activeSession, packet.campaignId)
+          }))
+        );
+      }
+      setupView = canReadSetup ? await getAuthorizedCampaignSetupView(activeSession, "setup-campaign") : null;
     }
   } catch (error) {
     databaseError = error instanceof Error ? error.message : "Unknown database error";
@@ -477,6 +507,102 @@ export default async function Home({ searchParams }: HomeProps) {
                   ))}
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" && rdReviewBoard ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>R&amp;D Review Board</h2>
+                <span>{rdReviewBoard.readyPackets.length} ready</span>
+              </div>
+              <div className="table-list">
+                <div className="table-row">
+                  <div>
+                    <strong>Lower-priority queues stay separate</strong>
+                    <span>Awaiting clarification: {rdReviewBoard.awaitingClarificationCount}</span>
+                    <span>Future opportunities: {rdReviewBoard.futureOpportunityCount}</span>
+                    <span>Inactive ideas: {rdReviewBoard.inactiveIdeaCount}</span>
+                  </div>
+                </div>
+                {rdReviewPackets.map((packet) => (
+                  <div className="table-row" key={packet.ideaId}>
+                    <div>
+                      <strong>{packet.title}</strong>
+                      <span>
+                        {packet.campaignTitle} · {packet.submitterDisplayName}
+                        {packet.submitterDepartment ? ` · ${packet.submitterDepartment}` : ""}
+                      </span>
+                      {packet.summary ? <span>{packet.summary.summaryText}</span> : null}
+                      {packet.sourceTrace ? (
+                        <span>
+                          Source trace: {packet.sourceTrace.readinessBasis} ({packet.sourceTrace.routingReason})
+                        </span>
+                      ) : null}
+                      {packet.ranking ? (
+                        <span>
+                          Rank #{packet.ranking.rankPosition}: {packet.ranking.rankReasons.join(" · ")}
+                        </span>
+                      ) : null}
+                      {packet.members.map((member) => (
+                        <span key={`${packet.ideaId}:${member.ideaId}`}>
+                          {member.title} · {formatStatus(member.relationshipType)}
+                          {member.variantDifference ? ` · ${member.variantDifference}` : ""}
+                        </span>
+                      ))}
+                      {packet.recommendations.map((recommendation) => (
+                        <span key={recommendation.recommendationId}>
+                          Team recommendation: {formatStatus(recommendation.recommendedOutcome)} · {recommendation.reasonTag}
+                          {recommendation.reasonNote ? ` · ${recommendation.reasonNote}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="draft-actions">
+                      {packet.canRecommend ? (
+                        <form action={recommendReviewOutcomeAction}>
+                          <input name="ideaId" type="hidden" value={packet.ideaId} />
+                          <select defaultValue="potential_idea" name="nextState">
+                            <option value="potential_idea">Recommend Potential Idea</option>
+                            <option value="future_opportunity">Recommend Future Opportunity</option>
+                            <option value="inactive_idea">Recommend Inactive Idea</option>
+                          </select>
+                          <select defaultValue="high_value" name="reasonTag">
+                            {[...potentialIdeaReasonTags, ...returnIdeaReasonTags].map((tag) => (
+                              <option key={tag} value={tag}>
+                                {formatStatus(tag)}
+                              </option>
+                            ))}
+                          </select>
+                          <input name="reasonNote" placeholder="Optional note" />
+                          <button type="submit">Recommend</button>
+                        </form>
+                      ) : null}
+                      {packet.canRecord ? (
+                        <form action={recordReviewOutcomeAction}>
+                          <input name="ideaId" type="hidden" value={packet.ideaId} />
+                          <select defaultValue="potential_idea" name="nextState">
+                            <option value="potential_idea">Mark Potential Idea</option>
+                            <option value="future_opportunity">Return Future Opportunity</option>
+                            <option value="inactive_idea">Return Inactive Idea</option>
+                          </select>
+                          <select defaultValue="high_value" name="reasonTag">
+                            {[...potentialIdeaReasonTags, ...returnIdeaReasonTags].map((tag) => (
+                              <option key={tag} value={tag}>
+                                {formatStatus(tag)}
+                              </option>
+                            ))}
+                          </select>
+                          <input name="reasonNote" placeholder="Optional note" />
+                          <button type="submit">Record outcome</button>
+                        </form>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+                {rdReviewBoard.readyPackets.length === 0 ? (
+                  <p className="muted-copy">No ideas are Ready for R&amp;D Review.</p>
+                ) : null}
+              </div>
             </section>
           ) : null}
 

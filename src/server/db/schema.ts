@@ -385,6 +385,65 @@ export const ideaReviewSummaries = mysqlTable("idea_review_summaries", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+export const reviewOutcomeValues = [
+  "potential_idea",
+  "future_opportunity",
+  "inactive_idea"
+] as const;
+
+export type ReviewOutcomeValue = (typeof reviewOutcomeValues)[number];
+
+export const ideaRankings = mysqlTable("idea_rankings", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  rankPosition: int("rank_position").notNull(),
+  rankReasons: json("rank_reasons").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const ideaReviewRecommendations = mysqlTable("idea_review_recommendations", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  recommendedOutcome: mysqlEnum("recommended_outcome", reviewOutcomeValues).notNull(),
+  reasonTag: varchar("reason_tag", { length: 64 }).notNull(),
+  reasonNote: text("reason_note"),
+  recommendedByUserId: varchar("recommended_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const ideaReviewOutcomes = mysqlTable("idea_review_outcomes", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  outcome: mysqlEnum("outcome", reviewOutcomeValues).notNull(),
+  reasonTag: varchar("reason_tag", { length: 64 }).notNull(),
+  reasonNote: text("reason_note"),
+  decidedByUserId: varchar("decided_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  decidedAt: timestamp("decided_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 export const auditActorType = mysqlEnum("actor_type", ["user", "system", "ai"]);
 
 export const auditEvents = mysqlTable("audit_events", {

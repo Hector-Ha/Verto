@@ -5,23 +5,19 @@ import { and, eq, inArray } from "drizzle-orm";
 import { canManageCampaignLifecycle } from "../auth/permissions";
 import type { DemoSession } from "../auth/session";
 import { assertCampaignSetupReadyForIntake } from "../campaign-setup/service";
+import { recordIdeaReviewOutcome } from "../rd-review/service";
 import { db } from "../db/client";
 import {
   auditEvents,
   campaignMemberships,
   campaignSetupQuestions,
   campaigns,
-  ideaStateHistory,
-  ideas,
   userRoles
 } from "../db/schema";
 
 type CampaignStatus = (typeof campaigns.$inferSelect)["lifecycleStatus"];
 type MembershipRole = (typeof campaignMemberships.$inferSelect)["membershipRole"];
-type ReviewOutcome = Extract<
-  (typeof ideaStateHistory.$inferSelect)["workflowState"],
-  "future_opportunity" | "inactive_idea" | "potential_idea"
->;
+type ReviewOutcome = import("../rd-review/service").ReviewOutcome;
 
 type CreateSpecificCampaignInput = {
   id?: string;
@@ -315,19 +311,8 @@ export async function removeCampaignTeamMember(session: DemoSession, campaignId:
 }
 
 async function countReadyReviewIdeas(campaignId: string) {
-  const rows = await db
-    .select({ id: ideas.id })
-    .from(ideas)
-    .innerJoin(ideaStateHistory, eq(ideaStateHistory.ideaId, ideas.id))
-    .where(
-      and(
-        eq(ideas.campaignId, campaignId),
-        eq(ideaStateHistory.isCurrent, true),
-        eq(ideaStateHistory.workflowState, "ready_for_rd_review")
-      )
-    );
-
-  return rows.length;
+  const { countReadyReviewIdeasForCampaign } = await import("../rd-review/service");
+  return countReadyReviewIdeasForCampaign(campaignId);
 }
 
 function validateSchedule(input: ChangeLifecycleInput) {
@@ -408,59 +393,4 @@ export async function changeCampaignLifecycle(
   });
 }
 
-export async function recordIdeaReviewOutcome(session: DemoSession, ideaId: string, input: ReviewOutcomeInput) {
-  const [row] = await db
-    .select({
-      campaignId: ideas.campaignId,
-      currentWorkflowState: ideaStateHistory.workflowState,
-      lifecycleStatus: campaigns.lifecycleStatus
-    })
-    .from(ideas)
-    .innerJoin(campaigns, eq(campaigns.id, ideas.campaignId))
-    .leftJoin(
-      ideaStateHistory,
-      and(eq(ideaStateHistory.ideaId, ideas.id), eq(ideaStateHistory.isCurrent, true))
-    )
-    .where(eq(ideas.id, ideaId))
-    .limit(1);
-
-  if (!row) {
-    throw new Error("Idea not found.");
-  }
-
-  if (row.lifecycleStatus === "ended") {
-    throw new Error("Cannot record review decisions for an ended campaign.");
-  }
-  if (row.currentWorkflowState !== "ready_for_rd_review") {
-    throw new Error("Review outcome can only be recorded for ideas ready for R&D review.");
-  }
-
-  await assertCanManageCampaign(session, row.campaignId, "record review decisions");
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(ideaStateHistory)
-      .set({ isCurrent: false })
-      .where(and(eq(ideaStateHistory.ideaId, ideaId), eq(ideaStateHistory.isCurrent, true)));
-    await tx.insert(ideaStateHistory).values({
-      changedAt: new Date(),
-      changedByUserId: session.user.id,
-      ideaId,
-      id: newId("idea-state"),
-      isCurrent: true,
-      reason: input.reason ?? null,
-      workflowState: input.nextState
-    });
-    await writeCampaignAudit(
-      tx,
-      session,
-      "campaign.review_outcome.recorded",
-      row.campaignId,
-      "Campaign review outcome recorded.",
-      {
-        ideaId,
-        nextState: input.nextState
-      }
-    );
-  });
-}
+export { recordIdeaReviewOutcome };
