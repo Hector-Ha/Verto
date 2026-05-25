@@ -106,9 +106,10 @@ const workspaceTabs: Array<{ id: WorkspaceTab; label: string; summary: string }>
   { id: "operations", label: "Operations", summary: "Demo jobs, logs, context" }
 ];
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
-  timeStyle: "short"
+  timeStyle: "short",
+  timeZone: "America/Toronto"
 });
 
 function formatStatus(status: string) {
