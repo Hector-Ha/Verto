@@ -6,6 +6,17 @@ import {
   removeCampaignTeamMemberAction
 } from "@/server/campaigns/actions";
 import {
+  deleteIdeaDraftAction,
+  saveIdeaDraftAction,
+  submitIdeaAction,
+  submitIdeaDraftAction
+} from "@/server/employee-intake/actions";
+import {
+  analyzeIdeaFamilyAction,
+  regenerateIdeaFamilySummaryAction
+} from "@/server/idea-families/actions";
+import { requestEmployeeClarificationAction } from "@/server/clarifications/actions";
+import {
   answerSetupQuestionAction,
   approveCampaignKnowledgeReportAction,
   approveSetupAnswerAction,
@@ -16,12 +27,45 @@ import {
 } from "@/server/campaign-setup/actions";
 import { switchRoleAction } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/cookies";
-import { canContributeToCampaign, getDemoPermissionSummary } from "@/server/auth/permissions";
+import {
+  assignIdeaRankingAction,
+  recordReviewOutcomeAction,
+  recommendReviewOutcomeAction
+} from "@/server/rd-review/actions";
+import {
+  getAccessibleRdReviewBoard,
+  potentialIdeaReasonTags,
+  returnIdeaReasonTags
+} from "@/server/rd-review/service";
+import { canContributeToCampaign, canRecordReviewOutcome, canRecommendReviewOutcome, getDemoPermissionSummary } from "@/server/auth/permissions";
 import { getAuthorizedCampaignSetupView } from "@/server/campaign-setup/service";
+import {
+  formatClarificationExpiryDate,
+  getAccessibleClarificationReviewView,
+  getAccessibleClarificationTriggerIdeas
+} from "@/server/clarifications/service";
 import { getCampaignOperationsView, getDemoRoleSwitchOptions, getDemoSnapshot } from "@/server/db/queries";
+import { getEmployeeIntakeView, getEmployeeSubmissionReceipt } from "@/server/employee-intake/service";
+import {
+  getAccessibleIdeaFamilyCandidates,
+  getAccessibleIdeaFamilyReviewView
+} from "@/server/idea-families/service";
+import {
+  routeIdeaBeforeRdReviewAction,
+  runCampaignRoutingRecheckAction,
+  runGeneralCampaignRoutingRecheckAction
+} from "@/server/pre-rd-routing/actions";
+import {
+  getAccessibleRoutingCandidateIdeas,
+  getAccessibleRoutingReviewView
+} from "@/server/pre-rd-routing/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+type HomeProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
@@ -31,10 +75,28 @@ function formatDateTimeLocal(date: Date | null) {
   return date ? date.toISOString().slice(0, 16) : "";
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: HomeProps) {
+  const resolvedSearchParams = await searchParams;
+  const submittedIdeaId =
+    typeof resolvedSearchParams?.submittedIdeaId === "string" ? resolvedSearchParams.submittedIdeaId : null;
   let snapshot: Awaited<ReturnType<typeof getDemoSnapshot>> | null = null;
   let campaignOperations: Awaited<ReturnType<typeof getCampaignOperationsView>> | null = null;
   let setupView: Awaited<ReturnType<typeof getAuthorizedCampaignSetupView>> | null = null;
+  let employeeIntakeView: Awaited<ReturnType<typeof getEmployeeIntakeView>> | null = null;
+  let submissionReceipt: Awaited<ReturnType<typeof getEmployeeSubmissionReceipt>> | null = null;
+  let clarificationReviewView: Awaited<ReturnType<typeof getAccessibleClarificationReviewView>> = [];
+  let clarificationTriggerIdeas: Awaited<ReturnType<typeof getAccessibleClarificationTriggerIdeas>> = [];
+  let ideaFamilyCandidates: Awaited<ReturnType<typeof getAccessibleIdeaFamilyCandidates>> = [];
+  let ideaFamilyReviewView: Awaited<ReturnType<typeof getAccessibleIdeaFamilyReviewView>> = [];
+  let routingCandidateIdeas: Awaited<ReturnType<typeof getAccessibleRoutingCandidateIdeas>> = [];
+  let routingReviewView: Awaited<ReturnType<typeof getAccessibleRoutingReviewView>> = [];
+  let rdReviewBoard: Awaited<ReturnType<typeof getAccessibleRdReviewBoard>> | null = null;
+  let rdReviewPackets: Array<
+    Awaited<ReturnType<typeof getAccessibleRdReviewBoard>>["readyPackets"][number] & {
+      canRecommend: boolean;
+      canRecord: boolean;
+    }
+  > = [];
   let roleOptions: Awaited<ReturnType<typeof getDemoRoleSwitchOptions>> = [];
   let session: Awaited<ReturnType<typeof getCurrentSession>> = null;
   let permissionSummary: Awaited<ReturnType<typeof getDemoPermissionSummary>> | null = null;
@@ -47,15 +109,58 @@ export default async function Home() {
       getCurrentSession()
     ]);
     if (session) {
-      const [nextPermissionSummary, nextCampaignOperations, canReadSetup] = await Promise.all([
-        getDemoPermissionSummary(session),
-        getCampaignOperationsView(session),
-        canContributeToCampaign(session, "setup-campaign")
+      const activeSession = session;
+      const [
+        nextPermissionSummary,
+        nextCampaignOperations,
+        canReadSetup,
+        nextEmployeeIntakeView,
+        nextReceipt,
+        nextClarificationReviewView,
+        nextClarificationTriggerIdeas,
+        nextIdeaFamilyCandidates,
+        nextIdeaFamilyReviewView,
+        nextRoutingCandidateIdeas,
+        nextRoutingReviewView,
+        nextRdReviewBoard
+      ] = await Promise.all([
+        getDemoPermissionSummary(activeSession),
+        getCampaignOperationsView(activeSession),
+        canContributeToCampaign(activeSession, "setup-campaign"),
+        activeSession.role.id === "employee" ? getEmployeeIntakeView(activeSession) : Promise.resolve(null),
+        activeSession.role.id === "employee" && submittedIdeaId
+          ? getEmployeeSubmissionReceipt(activeSession, submittedIdeaId)
+          : Promise.resolve(null),
+        getAccessibleClarificationReviewView(activeSession),
+        getAccessibleClarificationTriggerIdeas(activeSession),
+        getAccessibleIdeaFamilyCandidates(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleIdeaFamilyReviewView(activeSession),
+        getAccessibleRoutingCandidateIdeas(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve([]) : getAccessibleRoutingReviewView(activeSession),
+        activeSession.role.id === "employee" ? Promise.resolve(null) : getAccessibleRdReviewBoard(activeSession)
       ]);
 
       permissionSummary = nextPermissionSummary;
       campaignOperations = nextCampaignOperations;
-      setupView = canReadSetup ? await getAuthorizedCampaignSetupView(session, "setup-campaign") : null;
+      employeeIntakeView = nextEmployeeIntakeView;
+      submissionReceipt = nextReceipt;
+      clarificationReviewView = nextClarificationReviewView;
+      clarificationTriggerIdeas = nextClarificationTriggerIdeas;
+      ideaFamilyCandidates = nextIdeaFamilyCandidates;
+      ideaFamilyReviewView = nextIdeaFamilyReviewView;
+      routingCandidateIdeas = nextRoutingCandidateIdeas;
+      routingReviewView = nextRoutingReviewView;
+      rdReviewBoard = nextRdReviewBoard;
+      if (nextRdReviewBoard) {
+        rdReviewPackets = await Promise.all(
+          nextRdReviewBoard.readyPackets.map(async (packet) => ({
+            ...packet,
+            canRecommend: await canRecommendReviewOutcome(activeSession, packet.campaignId),
+            canRecord: await canRecordReviewOutcome(activeSession, packet.campaignId)
+          }))
+        );
+      }
+      setupView = canReadSetup ? await getAuthorizedCampaignSetupView(activeSession, "setup-campaign") : null;
     }
   } catch (error) {
     databaseError = error instanceof Error ? error.message : "Unknown database error";
@@ -227,6 +332,411 @@ export default async function Home() {
               ))}
             </div>
           </section>
+
+          {employeeIntakeView ? (
+            <section className="panel intake-panel">
+              <div className="panel-heading">
+                <h2>Employee Intake</h2>
+                <span>{employeeIntakeView.destinations.length} destinations</span>
+              </div>
+              <div className="intake-shell">
+                {submissionReceipt ? (
+                  <div className="submission-confirmation">
+                    <strong>{submissionReceipt.title}</strong>
+                    <span>{submissionReceipt.confirmationText}</span>
+                  </div>
+                ) : null}
+
+                <div className="intake-grid">
+                  <form action={submitIdeaAction} className="control-form">
+                    <h3>Submit idea</h3>
+                    <label>
+                      <span>Destination</span>
+                      <select name="campaignId" required>
+                        {employeeIntakeView.destinations.map((destination) => (
+                          <option key={`submit:${destination.campaignId}`} value={destination.campaignId}>
+                            {destination.previewTitle}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Title</span>
+                      <input name="title" required />
+                    </label>
+                    <label>
+                      <span>Description</span>
+                      <textarea name="originalText" required rows={4} />
+                    </label>
+                    <label>
+                      <span>Problem or opportunity</span>
+                      <textarea name="problemOpportunity" rows={2} />
+                    </label>
+                    <label>
+                      <span>Expected benefit</span>
+                      <textarea name="expectedBenefit" rows={2} />
+                    </label>
+                    <label>
+                      <span>Evidence or example</span>
+                      <textarea name="evidenceExample" rows={2} />
+                    </label>
+                    <label>
+                      <span>Supporting link</span>
+                      <input name="supportingLink" type="url" />
+                    </label>
+                    <button type="submit">Submit</button>
+                  </form>
+
+                  <form action={saveIdeaDraftAction} className="control-form">
+                    <h3>Save draft</h3>
+                    <label>
+                      <span>Destination</span>
+                      <select name="campaignId" required>
+                        {employeeIntakeView.destinations.map((destination) => (
+                          <option key={`draft:${destination.campaignId}`} value={destination.campaignId}>
+                            {destination.previewTitle}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Title</span>
+                      <input name="title" required />
+                    </label>
+                    <label>
+                      <span>Description</span>
+                      <textarea name="originalText" required rows={4} />
+                    </label>
+                    <label>
+                      <span>Problem or opportunity</span>
+                      <textarea name="problemOpportunity" rows={2} />
+                    </label>
+                    <label>
+                      <span>Expected benefit</span>
+                      <textarea name="expectedBenefit" rows={2} />
+                    </label>
+                    <label>
+                      <span>Evidence or example</span>
+                      <textarea name="evidenceExample" rows={2} />
+                    </label>
+                    <label>
+                      <span>Supporting link</span>
+                      <input name="supportingLink" type="url" />
+                    </label>
+                    <button type="submit">Save</button>
+                  </form>
+                </div>
+
+                <div className="draft-list">
+                  {employeeIntakeView.drafts.map((draft) => (
+                    <article className="draft-card" key={draft.id}>
+                      <div>
+                        <strong>{draft.title}</strong>
+                        <span>{draft.destinationTitle}</span>
+                      </div>
+                      <p>{draft.originalText}</p>
+                      <div className="draft-actions">
+                        <form action={submitIdeaDraftAction}>
+                          <input name="draftId" type="hidden" value={draft.id} />
+                          <button disabled={!draft.destinationAvailable} type="submit">
+                            Submit
+                          </button>
+                        </form>
+                        <form action={deleteIdeaDraftAction}>
+                          <input name="draftId" type="hidden" value={draft.id} />
+                          <button className="secondary-button" type="submit">
+                            Delete
+                          </button>
+                        </form>
+                        {!draft.destinationAvailable ? <code>intake closed</code> : null}
+                      </div>
+                    </article>
+                  ))}
+                  {employeeIntakeView.drafts.length === 0 ? <p className="muted-copy">No saved drafts.</p> : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Employee Clarifications</h2>
+                <span>{clarificationReviewView.length}</span>
+              </div>
+              <div className="table-list">
+                {clarificationReviewView.map((request) => (
+                  <div className="table-row" key={request.requestId}>
+                    <div>
+                      <strong>{request.ideaTitle}</strong>
+                      <span>{request.requestText}</span>
+                      <span>Expires {formatClarificationExpiryDate(request.expiresAt)}</span>
+                      {request.reminderSentAt ? <span>Reminder sent {request.reminderSentAt.toLocaleString("en-US")}</span> : null}
+                      {request.answerText ? <span>{request.answerText}</span> : null}
+                      {request.assumptionRoutingDecision ? (
+                        <span>
+                          Assumption-Based Routing: {formatStatus(request.assumptionRoutingDecision)}.{" "}
+                          {request.assumptionText} {request.assumptionReason}
+                        </span>
+                      ) : null}
+                    </div>
+                    <code>{formatStatus(request.status)} / {formatStatus(request.emailStatus)}</code>
+                  </div>
+                ))}
+                {clarificationReviewView.length === 0 ? <p className="muted-copy">No employee clarifications yet.</p> : null}
+              </div>
+
+              {clarificationTriggerIdeas.length > 0 ? (
+                <div className="campaign-control-list">
+                  {clarificationTriggerIdeas.map((idea) => (
+                    <article className="campaign-control" key={idea.ideaId}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{idea.title}</h3>
+                          <span>{idea.campaignTitle}</span>
+                        </div>
+                        <code>{idea.currentWorkflowState ?? "submitted"}</code>
+                      </div>
+                      <form action={requestEmployeeClarificationAction}>
+                        <input name="ideaId" type="hidden" value={idea.ideaId} />
+                        <button disabled={idea.hasClarificationBatch} type="submit">
+                          Ask AI
+                        </button>
+                      </form>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" && rdReviewBoard ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>R&amp;D Review Board</h2>
+                <span>{rdReviewBoard.readyPackets.length} ready</span>
+              </div>
+              <div className="table-list">
+                <div className="table-row">
+                  <div>
+                    <strong>Lower-priority queues stay separate</strong>
+                    <span>Awaiting clarification: {rdReviewBoard.awaitingClarificationCount}</span>
+                    <span>Future opportunities: {rdReviewBoard.futureOpportunityCount}</span>
+                    <span>Inactive ideas: {rdReviewBoard.inactiveIdeaCount}</span>
+                  </div>
+                </div>
+                {rdReviewPackets.map((packet) => (
+                  <div className="table-row" key={packet.ideaId}>
+                    <div>
+                      <strong>{packet.title}</strong>
+                      <span>
+                        {packet.campaignTitle} · {packet.submitterDisplayName}
+                        {packet.submitterDepartment ? ` · ${packet.submitterDepartment}` : ""}
+                      </span>
+                      {packet.summary ? <span>{packet.summary.summaryText}</span> : null}
+                      {packet.sourceTrace ? (
+                        <span>
+                          Source trace: {packet.sourceTrace.readinessBasis} ({packet.sourceTrace.routingReason})
+                        </span>
+                      ) : null}
+                      {packet.ranking ? (
+                        <span>
+                          Rank #{packet.ranking.rankPosition}: {packet.ranking.rankReasons.join(" · ")}
+                        </span>
+                      ) : null}
+                      {packet.members.map((member) => (
+                        <span key={`${packet.ideaId}:${member.ideaId}`}>
+                          {member.title} · {formatStatus(member.relationshipType)}
+                          {member.variantDifference ? ` · ${member.variantDifference}` : ""}
+                        </span>
+                      ))}
+                      {packet.recommendations.map((recommendation) => (
+                        <span key={recommendation.recommendationId}>
+                          Team recommendation: {formatStatus(recommendation.recommendedOutcome)} · {recommendation.reasonTag}
+                          {recommendation.reasonNote ? ` · ${recommendation.reasonNote}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="draft-actions">
+                      {packet.canRecommend ? (
+                        <form action={recommendReviewOutcomeAction}>
+                          <input name="ideaId" type="hidden" value={packet.ideaId} />
+                          <select defaultValue="potential_idea" name="nextState">
+                            <option value="potential_idea">Recommend Potential Idea</option>
+                            <option value="future_opportunity">Recommend Future Opportunity</option>
+                            <option value="inactive_idea">Recommend Inactive Idea</option>
+                          </select>
+                          <select defaultValue="high_value" name="reasonTag">
+                            {[...potentialIdeaReasonTags, ...returnIdeaReasonTags].map((tag) => (
+                              <option key={tag} value={tag}>
+                                {formatStatus(tag)}
+                              </option>
+                            ))}
+                          </select>
+                          <input name="reasonNote" placeholder="Optional note" />
+                          <button type="submit">Recommend</button>
+                        </form>
+                      ) : null}
+                      {packet.canRecord ? (
+                        <form action={recordReviewOutcomeAction}>
+                          <input name="ideaId" type="hidden" value={packet.ideaId} />
+                          <select defaultValue="potential_idea" name="nextState">
+                            <option value="potential_idea">Mark Potential Idea</option>
+                            <option value="future_opportunity">Return Future Opportunity</option>
+                            <option value="inactive_idea">Return Inactive Idea</option>
+                          </select>
+                          <select defaultValue="high_value" name="reasonTag">
+                            {[...potentialIdeaReasonTags, ...returnIdeaReasonTags].map((tag) => (
+                              <option key={tag} value={tag}>
+                                {formatStatus(tag)}
+                              </option>
+                            ))}
+                          </select>
+                          <input name="reasonNote" placeholder="Optional note" />
+                          <button type="submit">Record outcome</button>
+                        </form>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+                {rdReviewBoard.readyPackets.length === 0 ? (
+                  <p className="muted-copy">No ideas are Ready for R&amp;D Review.</p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Idea Families</h2>
+                <span>{ideaFamilyReviewView.length} review packets</span>
+              </div>
+
+              {ideaFamilyCandidates.length > 0 ? (
+                <div className="campaign-control-list">
+                  {ideaFamilyCandidates.map((idea) => (
+                    <article className="campaign-control" key={`idea-family-candidate:${idea.ideaId}`}>
+                      <div className="campaign-control-heading">
+                        <div>
+                          <h3>{idea.title}</h3>
+                          <span>{idea.campaignTitle}</span>
+                        </div>
+                        <code>ungrouped</code>
+                      </div>
+                      <form action={analyzeIdeaFamilyAction}>
+                        <input name="ideaId" type="hidden" value={idea.ideaId} />
+                        <button disabled={!session} type="submit">
+                          Analyze family
+                        </button>
+                      </form>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="table-list">
+                {ideaFamilyReviewView.map((family) => (
+                  <div className="table-row" key={family.familyId}>
+                    <div>
+                      <strong>{family.currentSummary?.summaryText ?? "Summary not generated"}</strong>
+                      <span>{family.campaignTitle}</span>
+                      {family.currentSummary ? (
+                        <span>
+                          v{family.currentSummary.version}: {family.currentSummary.aiReason}
+                        </span>
+                      ) : null}
+                      {family.members.map((member) => (
+                        <span key={`${family.familyId}:${member.ideaId}`}>
+                          {member.title} · {formatStatus(member.relationshipType)} · {member.displayName}
+                          {member.variantDifference ? ` · ${member.variantDifference}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <form action={regenerateIdeaFamilySummaryAction}>
+                      <input name="familyId" type="hidden" value={family.familyId} />
+                      <button disabled={!session} type="submit">
+                        Regenerate
+                      </button>
+                    </form>
+                  </div>
+                ))}
+                {ideaFamilyReviewView.length === 0 ? <p className="muted-copy">No idea families yet.</p> : null}
+              </div>
+            </section>
+          ) : null}
+
+          {session && session.role.id !== "employee" ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Pre-R&amp;D Routing</h2>
+                <span>{routingReviewView.length} decisions</span>
+              </div>
+              <div className="campaign-control-list">
+                <article className="campaign-control">
+                  <div className="campaign-control-heading">
+                    <div>
+                      <h3>Routing Rechecks</h3>
+                      <span>Unreviewed ideas only</span>
+                    </div>
+                    <code>internal</code>
+                  </div>
+                  <div className="control-row">
+                    <form action={runGeneralCampaignRoutingRecheckAction}>
+                      <button disabled={!session || !["rd_manager", "general_campaign_owner"].includes(session.role.id)} type="submit">
+                        Recheck General
+                      </button>
+                    </form>
+                    {campaignOperations?.specificCampaigns.map((campaign) => (
+                      <form action={runCampaignRoutingRecheckAction} key={`routing-recheck:${campaign.id}`}>
+                        <input name="campaignId" type="hidden" value={campaign.id} />
+                        <button disabled={!session} type="submit">
+                          Recheck {campaign.publicTitle}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </article>
+
+                {routingCandidateIdeas.map((idea) => (
+                  <article className="campaign-control" key={`routing-candidate:${idea.ideaId}`}>
+                    <div className="campaign-control-heading">
+                      <div>
+                        <h3>{idea.title}</h3>
+                        <span>{idea.campaignTitle}</span>
+                      </div>
+                      <code>{formatStatus(idea.currentWorkflowState)}</code>
+                    </div>
+                    <form action={routeIdeaBeforeRdReviewAction}>
+                      <input name="ideaId" type="hidden" value={idea.ideaId} />
+                      <button disabled={!session || (idea.campaignType === "general" && !["rd_manager", "general_campaign_owner"].includes(session.role.id))} type="submit">
+                        Route with AI
+                      </button>
+                    </form>
+                  </article>
+                ))}
+              </div>
+
+              <div className="table-list">
+                {routingReviewView.map((decision) => (
+                  <div className="table-row" key={decision.routingDecisionId}>
+                    <div>
+                      <strong>{decision.ideaTitle}</strong>
+                      <span>
+                        {formatStatus(decision.oldWorkflowState)} to {formatStatus(decision.newWorkflowState)}
+                      </span>
+                      <span>{decision.newReason}</span>
+                      <span>Readiness gate: {decision.readinessBasis}</span>
+                      {decision.outOfScopeMatched ? <span>Out of scope: {decision.outOfScopeReason}</span> : null}
+                      <span>Context {decision.contextVersion}</span>
+                    </div>
+                    <code>{formatStatus(decision.trigger)}</code>
+                  </div>
+                ))}
+                {routingReviewView.length === 0 ? <p className="muted-copy">No routing decisions yet.</p> : null}
+              </div>
+            </section>
+          ) : null}
 
           {campaignOperations ? (
             <section className="panel">

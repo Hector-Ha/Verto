@@ -351,6 +351,65 @@ code {
   padding: 16px;
 }
 
+.intake-shell {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.intake-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.submission-confirmation {
+  background: #f0fdf9;
+  border: 1px solid #99f6e4;
+  color: var(--accent);
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.submission-confirmation span {
+  color: #335a55;
+}
+
+.draft-list {
+  display: grid;
+  gap: 10px;
+}
+
+.draft-card {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+}
+
+.draft-card div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.draft-card span,
+.draft-card p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.draft-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.draft-actions form {
+  display: inline-flex;
+}
+
 .control-form,
 .campaign-control,
 .inline-form,
@@ -384,7 +443,8 @@ label span {
 
 .control-form button,
 .inline-form button,
-.lifecycle-form button {
+.lifecycle-form button,
+.draft-actions button {
   background: var(--accent);
   border: 1px solid var(--accent);
   color: #ffffff;
@@ -395,10 +455,17 @@ label span {
 
 .control-form button:disabled,
 .inline-form button:disabled,
-.lifecycle-form button:disabled {
+.lifecycle-form button:disabled,
+.draft-actions button:disabled {
   background: #cbd5e1;
   border-color: #cbd5e1;
   cursor: default;
+}
+
+.draft-actions .secondary-button {
+  background: #ffffff;
+  border-color: var(--line);
+  color: var(--ink);
 }
 
 .campaign-control-list {
@@ -668,6 +735,7 @@ label span {
 
   .campaign-controls,
   .control-row,
+  .intake-grid,
   .lifecycle-form,
   .setup-grid,
   .setup-summary {

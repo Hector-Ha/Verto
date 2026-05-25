@@ -70,6 +70,8 @@ export async function seedDemoData() {
             name,
             public_title,
             public_prompt,
+            public_examples,
+            preview_version,
             lifecycle_status,
             intake_starts_at,
             intake_ends_at,
@@ -77,12 +79,14 @@ export async function seedDemoData() {
             created_at,
             updated_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             type = VALUES(type),
             name = VALUES(name),
             public_title = VALUES(public_title),
             public_prompt = VALUES(public_prompt),
+            public_examples = VALUES(public_examples),
+            preview_version = VALUES(preview_version),
             lifecycle_status = VALUES(lifecycle_status),
             intake_starts_at = VALUES(intake_starts_at),
             intake_ends_at = VALUES(intake_ends_at),
@@ -95,6 +99,8 @@ export async function seedDemoData() {
           campaign.name,
           campaign.publicTitle,
           campaign.publicPrompt,
+          campaign.publicExamples,
+          campaign.previewVersion,
           campaign.lifecycleStatus,
           campaign.intakeStartsAt,
           campaign.intakeEndsAt,
@@ -239,13 +245,30 @@ export async function seedDemoData() {
     for (const idea of DEMO_IDEAS) {
       await connection.execute(
         `
-          INSERT INTO ideas (id, campaign_id, submitter_user_id, title, original_text, source_type, submitted_at, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO ideas (
+            id,
+            campaign_id,
+            submitter_user_id,
+            title,
+            original_text,
+            preview_version,
+            preview_title,
+            preview_prompt,
+            preview_examples,
+            source_type,
+            submitted_at,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             campaign_id = VALUES(campaign_id),
             submitter_user_id = VALUES(submitter_user_id),
             title = VALUES(title),
             original_text = VALUES(original_text),
+            preview_version = VALUES(preview_version),
+            preview_title = VALUES(preview_title),
+            preview_prompt = VALUES(preview_prompt),
+            preview_examples = VALUES(preview_examples),
             source_type = VALUES(source_type),
             submitted_at = VALUES(submitted_at)
         `,
@@ -255,6 +278,10 @@ export async function seedDemoData() {
           idea.submitterUserId,
           idea.title,
           idea.originalText,
+          idea.previewVersion,
+          idea.previewTitle,
+          idea.previewPrompt,
+          idea.previewExamples,
           idea.sourceType,
           idea.submittedAt,
           BASELINE_TIMESTAMP

@@ -78,6 +78,8 @@ export const DEMO_CAMPAIGNS = [
     intakeStartsAt: null,
     lifecycleStatus: "always_open",
     name: "General Campaign",
+    previewVersion: 1,
+    publicExamples: "Share process, tooling, material, or workflow ideas that do not fit a current campaign.",
     publicPrompt: "Submit useful ideas that do not fit a current specific campaign.",
     publicTitle: "General Ideas",
     type: "general"
@@ -89,6 +91,8 @@ export const DEMO_CAMPAIGNS = [
     intakeStartsAt: "2026-01-15 09:00:00",
     lifecycleStatus: "intake_open",
     name: "Battery Reuse Campaign",
+    previewVersion: 1,
+    publicExamples: "Fixture testing reuse, safe material handling, or life-extension workflows.",
     publicPrompt: "Share practical ways to reuse or extend the life of battery materials in manufacturing workflows.",
     publicTitle: "Battery Reuse Ideas",
     type: "specific"
@@ -100,6 +104,8 @@ export const DEMO_CAMPAIGNS = [
     intakeStartsAt: null,
     lifecycleStatus: "setup_review",
     name: "Packaging Reuse Setup Campaign",
+    previewVersion: 1,
+    publicExamples: "Reusable packaging loops, lower-waste handling, or returnable container ideas.",
     publicPrompt: "Share practical packaging reuse ideas that could reduce waste without slowing production.",
     publicTitle: "Packaging Reuse Ideas",
     type: "specific"
@@ -195,6 +201,10 @@ export const DEMO_IDEAS = [
     id: "idea-general-material-exchange",
     originalText:
       "We throw away usable lab materials when teams finish experiments. A shared exchange could make leftovers visible before new orders go out.",
+    previewExamples: "Share process, tooling, material, or workflow ideas that do not fit a current campaign.",
+    previewPrompt: "Submit useful ideas that do not fit a current specific campaign.",
+    previewTitle: "General Ideas",
+    previewVersion: 1,
     sourceType: "employee_submission",
     submittedAt: "2026-01-15 10:30:00",
     submitterUserId: "employee",

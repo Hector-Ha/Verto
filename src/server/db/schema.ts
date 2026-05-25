@@ -1,5 +1,6 @@
 import {
   boolean,
+  int,
   json,
   mysqlEnum,
   mysqlTable,
@@ -61,6 +62,8 @@ export const campaigns = mysqlTable("campaigns", {
   name: varchar("name", { length: 255 }).notNull(),
   publicTitle: varchar("public_title", { length: 255 }).notNull(),
   publicPrompt: text("public_prompt").notNull(),
+  publicExamples: text("public_examples"),
+  previewVersion: int("preview_version").notNull().default(1),
   lifecycleStatus: campaignLifecycleStatus.notNull(),
   intakeStartsAt: timestamp("intake_starts_at"),
   intakeEndsAt: timestamp("intake_ends_at"),
@@ -173,6 +176,24 @@ export const campaignKnowledgeReports = mysqlTable("campaign_knowledge_reports",
 
 export const ideaSourceType = mysqlEnum("source_type", ["employee_submission", "seed_demo"]);
 
+export const ideaDrafts = mysqlTable("idea_drafts", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  ownerUserId: varchar("owner_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  originalText: text("original_text").notNull(),
+  problemOpportunity: text("problem_opportunity"),
+  expectedBenefit: text("expected_benefit"),
+  evidenceExample: text("evidence_example"),
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
 export const ideas = mysqlTable("ideas", {
   id: varchar("id", { length: 64 }).primaryKey(),
   campaignId: varchar("campaign_id", { length: 64 })
@@ -183,19 +204,30 @@ export const ideas = mysqlTable("ideas", {
     .references(() => users.id),
   title: varchar("title", { length: 255 }).notNull(),
   originalText: text("original_text").notNull(),
+  problemOpportunity: text("problem_opportunity"),
+  expectedBenefit: text("expected_benefit"),
+  evidenceExample: text("evidence_example"),
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  previewVersion: int("preview_version").notNull().default(1),
+  previewTitle: varchar("preview_title", { length: 255 }).notNull().default(""),
+  previewPrompt: text("preview_prompt"),
+  previewExamples: text("preview_examples"),
   sourceType: ideaSourceType.notNull(),
   submittedAt: timestamp("submitted_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const ideaWorkflowState = mysqlEnum("workflow_state", [
+const ideaWorkflowStates = [
+  "submitted",
   "general_idea",
   "needs_employee_clarification",
   "ready_for_rd_review",
   "future_opportunity",
   "inactive_idea",
   "potential_idea"
-]);
+] as const;
+
+export const ideaWorkflowState = mysqlEnum("workflow_state", ideaWorkflowStates);
 
 export const ideaStateHistory = mysqlTable("idea_state_history", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -210,6 +242,7 @@ export const ideaStateHistory = mysqlTable("idea_state_history", {
 });
 
 export const clarificationStatus = mysqlEnum("status", ["pending", "answered", "expired", "cancelled"]);
+export const clarificationEmailStatus = mysqlEnum("email_status", ["pending", "sent", "retry_required"]);
 
 export const clarificationRequests = mysqlTable("clarification_requests", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -218,11 +251,25 @@ export const clarificationRequests = mysqlTable("clarification_requests", {
     .references(() => ideas.id, { onDelete: "cascade" }),
   requestText: text("request_text").notNull(),
   status: clarificationStatus.notNull(),
+  emailStatus: clarificationEmailStatus.notNull().default("pending"),
   tokenHash: varchar("token_hash", { length: 255 }).notNull().unique(),
+  emailTrackingId: varchar("email_tracking_id", { length: 255 }),
+  emailError: text("email_error"),
+  sentAt: timestamp("sent_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  reminderEmailTrackingId: varchar("reminder_email_tracking_id", { length: 255 }),
   expiresAt: timestamp("expires_at").notNull(),
+  expiredAt: timestamp("expired_at"),
+  assumptionText: text("assumption_text"),
+  assumptionReason: text("assumption_reason"),
+  assumptionRoutingDecision: varchar("assumption_routing_decision", { length: 64 }).$type<
+    "future_opportunity" | "inactive_idea"
+  >(),
   answeredAt: timestamp("answered_at"),
   answerText: text("answer_text"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  supportingLink: varchar("supporting_link", { length: 2048 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
 });
 
 export const aiDecisionStatus = mysqlEnum("status", ["pending", "succeeded", "failed", "retry_required"]);
@@ -236,6 +283,164 @@ export const aiDecisionLogs = mysqlTable("ai_decision_logs", {
   outputSummary: text("output_summary"),
   rawResponse: json("raw_response").$type<Record<string, unknown> | null>(),
   decisionResult: json("decision_result").$type<Record<string, unknown> | null>(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const routingTrigger = mysqlEnum("trigger", [
+  "initial_route",
+  "campaign_context_recheck",
+  "general_context_recheck"
+]);
+export const reviewPacketStatus = mysqlEnum("review_packet_status", [
+  "ready",
+  "missing_critical_info",
+  "not_applicable"
+]);
+
+export const ideaRoutingDecisions = mysqlTable("idea_routing_decisions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  aiDecisionLogId: varchar("ai_decision_log_id", { length: 64 }).references(() => aiDecisionLogs.id, {
+    onDelete: "set null"
+  }),
+  trigger: routingTrigger.notNull(),
+  oldWorkflowState: mysqlEnum("old_workflow_state", ideaWorkflowStates).notNull(),
+  newWorkflowState: mysqlEnum("new_workflow_state", ideaWorkflowStates).notNull(),
+  oldReason: text("old_reason"),
+  newReason: text("new_reason").notNull(),
+  reviewPacketStatus: reviewPacketStatus.notNull(),
+  readinessBasis: text("readiness_basis").notNull(),
+  outOfScopeMatched: boolean("out_of_scope_matched").notNull().default(false),
+  outOfScopeReason: text("out_of_scope_reason"),
+  contextVersion: varchar("context_version", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const ideaFamilies = mysqlTable("idea_families", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  primaryIdeaId: varchar("primary_idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow()
+});
+
+export const ideaFamilyRelationshipType = mysqlEnum("relationship_type", [
+  "primary",
+  "exact_duplicate",
+  "related_submission",
+  "variant"
+]);
+
+export const ideaFamilyMembers = mysqlTable(
+  "idea_family_members",
+  {
+    familyId: varchar("family_id", { length: 64 })
+      .notNull()
+      .references(() => ideaFamilies.id, { onDelete: "cascade" }),
+    ideaId: varchar("idea_id", { length: 64 })
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
+    relationshipType: ideaFamilyRelationshipType.notNull(),
+    variantDifference: text("variant_difference"),
+    createdAt: timestamp("created_at").notNull().defaultNow()
+  },
+  (table) => [primaryKey({ columns: [table.familyId, table.ideaId] })]
+);
+
+export type IdeaSummarySourceTrace = Array<{
+  clarificationRequestId: string | null;
+  excerpt: string;
+  ideaId: string;
+  sourceType: "original_submission" | "clarification_answer";
+}>;
+
+export const ideaReviewSummaries = mysqlTable("idea_review_summaries", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  familyId: varchar("family_id", { length: 64 })
+    .notNull()
+    .references(() => ideaFamilies.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  aiDecisionLogId: varchar("ai_decision_log_id", { length: 64 }).references(() => aiDecisionLogs.id, {
+    onDelete: "set null"
+  }),
+  requestedByUserId: varchar("requested_by_user_id", { length: 64 }).references(() => users.id, {
+    onDelete: "set null"
+  }),
+  version: int("version").notNull(),
+  summaryText: text("summary_text").notNull(),
+  sourceTrace: json("source_trace").$type<IdeaSummarySourceTrace>().notNull(),
+  aiReason: text("ai_reason").notNull(),
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const reviewOutcomeValues = [
+  "potential_idea",
+  "future_opportunity",
+  "inactive_idea"
+] as const;
+
+export type ReviewOutcomeValue = (typeof reviewOutcomeValues)[number];
+
+export const ideaRankings = mysqlTable("idea_rankings", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  rankPosition: int("rank_position").notNull(),
+  rankReasons: json("rank_reasons").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const ideaReviewRecommendations = mysqlTable("idea_review_recommendations", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  recommendedOutcome: mysqlEnum("recommended_outcome", reviewOutcomeValues).notNull(),
+  reasonTag: varchar("reason_tag", { length: 64 }).notNull(),
+  reasonNote: text("reason_note"),
+  recommendedByUserId: varchar("recommended_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const ideaReviewOutcomes = mysqlTable("idea_review_outcomes", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  campaignId: varchar("campaign_id", { length: 64 })
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 64 })
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  familyId: varchar("family_id", { length: 64 }).references(() => ideaFamilies.id, { onDelete: "set null" }),
+  outcome: mysqlEnum("outcome", reviewOutcomeValues).notNull(),
+  reasonTag: varchar("reason_tag", { length: 64 }).notNull(),
+  reasonNote: text("reason_note"),
+  decidedByUserId: varchar("decided_by_user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  decidedAt: timestamp("decided_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
